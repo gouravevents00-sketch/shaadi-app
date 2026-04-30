@@ -9,9 +9,12 @@ export default async function SetupWizardPage({ params }: { params: Promise<{ we
   if (!user) redirect('/login')
 
   const sc = createServiceClient()
+  const { data: userData } = await supabase.from('users').select('id').eq('id', user.id).single()
+  const { data: membership } = await supabase.from('company_members').select('company_id').eq('user_id', user.id).single()
+
   const { data: wedding } = await sc
     .from('weddings')
-    .select('id, bride_name, groom_name, date_from, date_to, wedding_date, primary_venue, primary_city')
+    .select('id, bride_name, groom_name, date_from, date_to, wedding_date, primary_venue, primary_city, budget_total, company_id')
     .eq('id', weddingId)
     .single()
 
@@ -39,6 +42,8 @@ export default async function SetupWizardPage({ params }: { params: Promise<{ we
       wedding={wedding}
       defaultDate={from ?? ''}
       quickDates={quickDates}
+      companyId={membership?.company_id ?? wedding.company_id ?? ''}
+      userId={userData?.id ?? user.id}
     />
   )
 }
