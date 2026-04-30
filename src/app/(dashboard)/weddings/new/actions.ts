@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { seedDateReminders } from '@/lib/automation/engine'
 
 interface WeddingInput {
   bride_name: string
@@ -35,5 +36,12 @@ export async function createWedding(input: WeddingInput): Promise<{ id?: string;
     .single()
 
   if (error) return { error: error.message }
+
+  // Seed date-relative reminders if wedding date is set (non-blocking)
+  const date = input.wedding_date || input.date_to || input.date_from
+  if (date) {
+    seedDateReminders(serviceClient, data.id, date).catch(() => { /* non-blocking */ })
+  }
+
   return { id: data.id }
 }

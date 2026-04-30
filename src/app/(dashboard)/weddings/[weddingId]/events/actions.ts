@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { autoPopulateFromEvent } from '@/lib/automation/engine'
 
 async function getVerifiedUser(weddingId: string) {
   const supabase = await createClient()
@@ -49,6 +50,11 @@ export async function createEvent(weddingId: string, formData: {
     .single()
 
   if (error) return { error: error.message }
+
+  // Auto-populate checklist, vendor slots & budget for this function (non-blocking)
+  autoPopulateFromEvent(result.serviceClient, weddingId, formData.name, formData.date)
+    .catch(() => { /* non-blocking */ })
+
   revalidatePath(`/weddings/${weddingId}/events`)
   return { id: data.id }
 }

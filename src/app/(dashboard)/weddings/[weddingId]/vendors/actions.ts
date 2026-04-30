@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { autoPopulateFromVendorBooked } from '@/lib/automation/engine'
 
 async function getVerified(weddingId: string) {
   const supabase = await createClient()
@@ -36,8 +37,22 @@ export async function updateVendor(weddingId: string, vendorId: string, data: {
 }) {
   const r = await getVerified(weddingId)
   if ('error' in r) return { error: r.error }
+
+  // Fetch current status before update (to detect booked transition)
+  const { data: before } = await r.sc.from('vendors')
+    .select('name, category, status').eq('id', vendorId).single()
+
   const { error } = await r.sc.from('vendors').update(data).eq('id', vendorId)
   if (error) return { error: error.message }
+
+  // Trigger follow-up tasks when vendor first moves to 'booked'
+  if (data.status === 'booked' && before?.status !== 'booked') {
+    const name = data.name ?? before?.name ?? ''
+    const cat  = data.category ?? before?.category ?? ''
+    autoPopulateFromVendorBooked(r.sc, weddingId, name, cat)
+      .catch(() => { /* non-blocking */ })
+  }
+
   revalidatePath(PATH(weddingId))
   return { success: true }
 }
