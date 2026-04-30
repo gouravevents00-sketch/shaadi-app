@@ -10,6 +10,9 @@ const PUBLIC_ROUTES = [
   '/schedule',
   '/venue',
   '/portal',
+  '/speaker',     // speaker self-fill portal (token-based, no auth)
+  '/celebrate',   // B2C landing, signup, new celebration
+  '/vendors',     // public vendor marketplace
 ]
 
 export async function middleware(request: NextRequest) {
@@ -39,11 +42,17 @@ export async function middleware(request: NextRequest) {
 
   const isPublic = PUBLIC_ROUTES.some(r => path.startsWith(r))
 
-  // Not logged in → redirect to login (except public routes)
+  // Not logged in → redirect to appropriate login page
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('next', path)
+    // B2C personal routes → celebrate signup
+    if (path.startsWith('/my/')) {
+      url.pathname = '/celebrate/signup'
+      url.searchParams.set('mode', 'signin')
+    } else {
+      url.pathname = '/login'
+      url.searchParams.set('next', path)
+    }
     return NextResponse.redirect(url)
   }
 

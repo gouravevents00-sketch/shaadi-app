@@ -8,6 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment } from './actions'
 import { usePrivacy } from '@/contexts/PrivacyContext'
+import DocumentsPanel from '@/components/shared/DocumentsPanel'
+import SmartDatePicker from '@/components/shared/SmartDatePicker'
+
+function isPaymentOverdue(p: { due_date: string; paid_date: string | null }) {
+  if (p.paid_date) return false
+  return new Date(p.due_date + 'T00:00:00') < new Date(new Date().toDateString())
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -50,10 +57,11 @@ const fmt = (n: number) => n >= 100000
 
 // ─── Main component ────────────────────────────────────────────────────────
 
-export default function VendorsClient({ weddingId, initialVendors, initialPayments }: {
+export default function VendorsClient({ weddingId, initialVendors, initialPayments, quickDates = [] }: {
   weddingId: string
   initialVendors: Vendor[]
   initialPayments: Payment[]
+  quickDates?: { label: string; value: string }[]
 }) {
   const { hidden } = usePrivacy()
   const pmoney = (n: number) => hidden ? '₹ ••••' : fmt(n)
@@ -80,6 +88,11 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
     .filter(p => !p.paid_date && p.due_date >= today)
     .sort((a, b) => a.due_date.localeCompare(b.due_date))
     .slice(0, 5)
+
+  // Overdue payments
+  const overduePayments = payments
+    .filter(p => isPaymentOverdue(p))
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
 
   // Filter vendors
   const filtered = vendors.filter(v =>
@@ -173,7 +186,7 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -194,6 +207,27 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
           <Plus className="w-3.5 h-3.5 mr-1.5" /> Add vendor
         </Button>
       </div>
+
+      {/* Overdue banner */}
+      {overduePayments.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarClock className="w-4 h-4 text-red-500" />
+            <span className="text-sm font-semibold text-red-700">{overduePayments.length} overdue payment{overduePayments.length !== 1 ? 's' : ''}</span>
+            <span className="text-sm text-red-500">· {pmoney(overduePayments.reduce((s, p) => s + Number(p.amount), 0))} total</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {overduePayments.map(p => {
+              const v = vendors.find(x => x.id === p.vendor_id)
+              return (
+                <span key={p.id} className="text-xs bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-medium">
+                  {v?.name} · {pmoney(Number(p.amount))} · due {new Date(p.due_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Summary pills */}
       {vendors.length > 0 && (
@@ -285,6 +319,7 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                   <VendorRow
                     key={v.id}
                     vendor={v}
+                    weddingId={weddingId}
                     payments={payments.filter(p => p.vendor_id === v.id)}
                     expanded={expanded.has(v.id)}
                     onToggle={() => toggleExpand(v.id)}
@@ -294,6 +329,7 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                     onAddPayment={(data) => handleAddPayment(v.id, data)}
                     onTogglePaid={togglePaid}
                     onDeletePayment={handleDeletePayment}
+                    quickDates={quickDates}
                   />
                 ))}
                 {/* Inline add for this category */}
@@ -368,8 +404,9 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
 
 // ─── VendorRow ─────────────────────────────────────────────────────────────
 
-function VendorRow({ vendor, payments, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment }: {
+function VendorRow({ vendor, weddingId, payments, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates }: {
   vendor: Vendor
+  weddingId: string
   payments: Payment[]
   expanded: boolean
   onToggle: () => void
@@ -379,6 +416,7 @@ function VendorRow({ vendor, payments, expanded, onToggle, onCycleStatus, onDele
   onAddPayment: (data: { amount: number; due_date: string; mode?: string }) => void
   onTogglePaid: (p: Payment) => void
   onDeletePayment: (p: Payment) => void
+  quickDates?: { label: string; value: string }[]
 }) {
   const { hidden } = usePrivacy()
   const pmoney = (n: number) => hidden ? '₹ ••••' : fmt(n)
@@ -438,26 +476,42 @@ function VendorRow({ vendor, payments, expanded, onToggle, onCycleStatus, onDele
               {remaining > 0 && <span className="text-xs text-amber-600 font-medium">{pmoney(remaining)} remaining</span>}
             </div>
             <div className="space-y-1.5">
-              {payments.map(p => (
-                <div key={p.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${p.paid_date ? 'bg-emerald-50' : 'bg-white border border-stone-200'}`}>
-                  <button onClick={() => onTogglePaid(p)} className="flex-shrink-0">
-                    {p.paid_date
-                      ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      : <Circle className="w-4 h-4 text-stone-300" />}
-                  </button>
-                  <span className={`font-medium ${p.paid_date ? 'text-emerald-700' : 'text-stone-700'}`}>{pmoney(Number(p.amount))}</span>
-                  <span className="text-stone-400">
-                    {new Date(p.due_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </span>
-                  {p.mode && <span className="text-stone-400 text-xs">{p.mode}</span>}
-                  {p.paid_date && <span className="text-emerald-500 text-xs ml-auto">Paid {new Date(p.paid_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
-                  <button onClick={() => onDeletePayment(p)} className="text-stone-300 hover:text-red-400 ml-auto flex-shrink-0">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              <AddPaymentRow vendorId={vendor.id} onAdd={onAddPayment} />
+              {payments.map(p => {
+                const overdue = isPaymentOverdue(p)
+                return (
+                  <div key={p.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
+                    p.paid_date ? 'bg-emerald-50' : overdue ? 'bg-red-50 border border-red-200' : 'bg-white border border-stone-200'
+                  }`}>
+                    <button onClick={() => onTogglePaid(p)} className="flex-shrink-0">
+                      {p.paid_date
+                        ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        : <Circle className={`w-4 h-4 ${overdue ? 'text-red-400' : 'text-stone-300'}`} />}
+                    </button>
+                    <span className={`font-medium ${p.paid_date ? 'text-emerald-700' : overdue ? 'text-red-700' : 'text-stone-700'}`}>{pmoney(Number(p.amount))}</span>
+                    <span className={`text-xs ${overdue ? 'text-red-500 font-medium' : 'text-stone-400'}`}>
+                      {new Date(p.due_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                    {overdue && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-semibold">OVERDUE</span>}
+                    {p.mode && <span className="text-stone-400 text-xs">{p.mode}</span>}
+                    {p.paid_date && <span className="text-emerald-500 text-xs ml-auto">Paid {new Date(p.paid_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+                    <button onClick={() => onDeletePayment(p)} className="text-stone-300 hover:text-red-400 ml-auto flex-shrink-0">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )
+              })}
+              <AddPaymentRow vendorId={vendor.id} onAdd={onAddPayment} quickDates={quickDates} />
             </div>
+          </div>
+
+          {/* Documents */}
+          <div className="border-t border-stone-100 pt-4">
+            <DocumentsPanel
+              weddingId={weddingId}
+              entityType="vendor"
+              entityId={vendor.id}
+              label="Contracts & documents"
+            />
           </div>
         </div>
       )}
@@ -522,9 +576,10 @@ function EditField({ label, value, onSave, type = 'text', multiline = false, ico
 
 // ─── AddPaymentRow ─────────────────────────────────────────────────────────
 
-function AddPaymentRow({ vendorId, onAdd }: {
+function AddPaymentRow({ vendorId, onAdd, quickDates }: {
   vendorId: string
   onAdd: (data: { amount: number; due_date: string; mode?: string }) => void
+  quickDates?: { label: string; value: string }[]
 }) {
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState('')
@@ -556,11 +611,11 @@ function AddPaymentRow({ vendorId, onAdd }: {
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
         className="text-sm border-0 bg-transparent outline-none w-24"
       />
-      <input
-        type="date"
+      <SmartDatePicker
         value={due}
-        onChange={e => setDue(e.target.value)}
+        onChange={setDue}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
+        quickDates={quickDates}
         className="text-sm border-0 bg-transparent outline-none w-32"
       />
       <input

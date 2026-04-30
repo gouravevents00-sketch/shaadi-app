@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select'
 import { createEvent, updateEvent, deleteEvent } from './actions'
+import SmartDatePicker from '@/components/shared/SmartDatePicker'
 
 interface Event {
   id: string
@@ -52,14 +53,16 @@ function formatDate(d: string) {
   })
 }
 
-export default function EventsClient({ weddingId, initialEvents, defaultVenue, defaultCity }: {
+export default function EventsClient({ weddingId, initialEvents, defaultVenue, defaultCity, defaultDate = '', quickDates = [] }: {
   weddingId: string
   initialEvents: Event[]
   defaultVenue: string
   defaultCity: string
+  defaultDate?: string
+  quickDates?: { label: string; value: string }[]
 }) {
   const empty = {
-    name: '', date: '', start_time: '', end_time: '',
+    name: '', date: defaultDate, start_time: '', end_time: '',
     venue: defaultVenue, city: defaultCity, expected_count: 0, type: 'ceremony', notes: ''
   }
 
@@ -77,6 +80,12 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
   function openNew() {
     setEditing(null)
     setForm(empty)
+    setOpen(true)
+  }
+
+  function openTemplate(name: string, type: string, startTime: string) {
+    setEditing(null)
+    setForm({ ...empty, name, type, start_time: startTime })
     setOpen(true)
   }
 
@@ -149,7 +158,7 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
   const sortedDates = Object.keys(byDate).sort()
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Events</h1>
@@ -161,13 +170,37 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
       </div>
 
       {events.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-stone-200 rounded-xl">
-          <CalendarDays className="w-10 h-10 text-stone-300 mx-auto mb-3" />
-          <p className="text-stone-500 font-medium">No events yet</p>
-          <p className="text-stone-400 text-sm mt-1">Add your first ceremony, ritual or party</p>
-          <Button onClick={openNew} variant="outline" className="mt-4">
-            <Plus className="w-4 h-4 mr-1.5" /> Add event
-          </Button>
+        <div className="border border-dashed border-stone-200 rounded-xl p-8">
+          <div className="text-center mb-6">
+            <CalendarDays className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+            <p className="text-stone-700 font-semibold">Plan your wedding schedule</p>
+            <p className="text-stone-400 text-sm mt-1">Add ceremonies, rituals, meals and parties — each with its own date, time and venue</p>
+          </div>
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 text-center">Quick-add common events</p>
+          <div className="flex flex-wrap gap-2 justify-center mb-6">
+            {[
+              { name: 'Ganesh Poojan', type: 'ritual', time: '09:00' },
+              { name: 'Mehandi', type: 'ceremony', time: '11:00' },
+              { name: 'Haldi', type: 'ritual', time: '10:00' },
+              { name: 'Mayera', type: 'ceremony', time: '11:00' },
+              { name: 'Sham-e-Mehfil', type: 'party', time: '19:00' },
+              { name: 'Sagai', type: 'ceremony', time: '11:00' },
+              { name: 'Baraat', type: 'ceremony', time: '20:00' },
+              { name: 'Pheras', type: 'ceremony', time: '22:00' },
+              { name: 'Reception', type: 'party', time: '19:00' },
+              { name: 'Vidai', type: 'ritual', time: '00:00' },
+            ].map(t => (
+              <button key={t.name} onClick={() => openTemplate(t.name, t.type, t.time)}
+                className="text-sm bg-white border border-stone-200 text-stone-700 px-3 py-1.5 rounded-lg hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50 transition-colors">
+                + {t.name}
+              </button>
+            ))}
+          </div>
+          <div className="text-center">
+            <Button onClick={openNew} variant="outline" size="sm">
+              <Plus className="w-4 h-4 mr-1.5" /> Custom event
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-8">
@@ -248,8 +281,13 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
               </div>
               <div className="space-y-1.5">
                 <Label>Date *</Label>
-                <Input type="date" value={form.date}
-                  onChange={e => set('date', e.target.value)} required />
+                <SmartDatePicker
+                  value={form.date}
+                  onChange={v => set('date', v)}
+                  quickDates={quickDates}
+                  required
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
               </div>
             </div>
 
@@ -269,7 +307,7 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label>Venue *</Label>
-                <Input placeholder="e.g. Nahargarh Palace" value={form.venue}
+                <Input placeholder="e.g. Taj Hotel" value={form.venue}
                   onChange={e => set('venue', e.target.value)} required />
               </div>
               <div className="space-y-1.5">

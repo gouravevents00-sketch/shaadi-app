@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight, Sparkles, Circle, CircleDot, C
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { createItem, updateItem, deleteItem, bulkCreateItems, bookVendor } from './actions'
+import SmartDatePicker from '@/components/shared/SmartDatePicker'
 import { saveCurrentAsTemplate } from '../../../dashboard/templates/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ interface Item {
   side: Side
   status: Status
   due_date: string | null
+  assignee: string | null
   notes: string | null
   order: number
 }
@@ -202,16 +204,53 @@ function BookingCapture({ item, onSave, onSkip }: {
 
 // ─── Inline due date ──────────────────────────────────────────────────────────
 
-function DueDateCell({ value, onSave }: { value: string | null; onSave: (v: string | null) => void }) {
+function DueDateCell({ value, onSave, quickDates }: {
+  value: string | null
+  onSave: (v: string | null) => void
+  quickDates?: { label: string; value: string }[]
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  function startEdit() { setDraft(value ?? ''); setEditing(true) }
+
+  if (editing) return (
+    <SmartDatePicker
+      value={draft}
+      onChange={setDraft}
+      autoFocus
+      onBlur={() => { setEditing(false); onSave(draft || null) }}
+      onKeyDown={e => { if (e.key === 'Escape') setEditing(false) }}
+      onQuickSelect={v => { setEditing(false); onSave(v) }}
+      quickDates={quickDates}
+      className="text-xs border border-stone-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-rose-300 bg-white w-28"
+    />
+  )
+
+  return (
+    <button onClick={startEdit}
+      className={`text-xs flex items-center gap-1 flex-shrink-0 transition-colors hover:text-rose-600 ${
+        value && isOverdue(value) ? 'text-red-500 font-medium' : value ? 'text-stone-400' : 'text-stone-200 hover:text-stone-400'
+      }`}>
+      <CalendarDays className="w-3 h-3" />
+      {value ? fmtDate(value) : ''}
+    </button>
+  )
+}
+
+// ─── Assignee cell ────────────────────────────────────────────────────────────
+
+function AssigneeCell({ value, onSave }: { value: string | null; onSave: (v: string | null) => void }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) return (
     <input
       autoFocus
-      type="date"
+      type="text"
       defaultValue={value ?? ''}
-      onBlur={e => { setEditing(false); onSave(e.target.value || null) }}
-      onKeyDown={e => { if (e.key === 'Escape') setEditing(false) }}
+      placeholder="Who's handling this?"
+      onBlur={e => { setEditing(false); onSave(e.target.value.trim() || null) }}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(false) }}
       className="text-xs border border-stone-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-rose-300 bg-white w-28"
     />
   )
@@ -219,10 +258,11 @@ function DueDateCell({ value, onSave }: { value: string | null; onSave: (v: stri
   return (
     <button onClick={() => setEditing(true)}
       className={`text-xs flex items-center gap-1 flex-shrink-0 transition-colors hover:text-rose-600 ${
-        value && isOverdue(value) ? 'text-red-500 font-medium' : value ? 'text-stone-400' : 'text-stone-200 hover:text-stone-400'
-      }`}>
-      <CalendarDays className="w-3 h-3" />
-      {value ? fmtDate(value) : ''}
+        value ? 'text-stone-500' : 'text-stone-200 hover:text-stone-400'
+      }`}
+      title={value ? `Assigned to ${value}` : 'Assign to someone'}>
+      <span className="text-[10px]">👤</span>
+      {value || ''}
     </button>
   )
 }
@@ -235,11 +275,12 @@ interface CompanyTemplate {
 }
 
 export default function ChecklistClient({
-  weddingId, initialItems, companyTemplates = [],
+  weddingId, initialItems, companyTemplates = [], quickDates = [],
 }: {
   weddingId: string
   initialItems: Item[]
   companyTemplates?: CompanyTemplate[]
+  quickDates?: { label: string; value: string }[]
 }) {
   const [items, setItems] = useState<Item[]>(initialItems)
   const [sideFilter, setSideFilter] = useState<string>('all')
@@ -380,7 +421,7 @@ export default function ChecklistClient({
     setAddingCat(null)
     const result = await createItem(weddingId, { title, category: addingCat, side: 'shared', due_date: null, notes: null })
     if (result.error) { toast.error(result.error); return }
-    setItems(prev => [...prev, { id: result.id!, title, category: addingCat!, side: 'shared', status: 'pending', due_date: null, notes: null, order: prev.length }])
+    setItems(prev => [...prev, { id: result.id!, title, category: addingCat!, side: 'shared', status: 'pending', due_date: null, assignee: null, notes: null, order: prev.length }])
   }
 
   function startEdit(item: Item) {
@@ -415,6 +456,11 @@ export default function ChecklistClient({
     await updateItem(weddingId, item.id, { due_date: val })
   }
 
+  async function handleAssigneeSave(item: Item, val: string | null) {
+    setItems(prev => prev.map(i => i.id === item.id ? { ...i, assignee: val } : i))
+    await updateItem(weddingId, item.id, { assignee: val })
+  }
+
   async function handleNotesSave(item: Item) {
     const notes = editNotes.trim() || null
     setEditingNotesId(null)
@@ -431,7 +477,7 @@ export default function ChecklistClient({
     setNewCatName('')
     setNewCatOpen(false)
     startAdd(cat)
-    setItems(prev => [...prev, { id: `__placeholder_${cat}`, title: '', category: cat, side: 'shared', status: 'pending', due_date: null, notes: null, order: prev.length }])
+    setItems(prev => [...prev, { id: `__placeholder_${cat}`, title: '', category: cat, side: 'shared', status: 'pending', due_date: null, assignee: null, notes: null, order: prev.length }])
   }
 
   // ─── Template loader ──────────────────────────────────────────────────────
@@ -491,7 +537,7 @@ export default function ChecklistClient({
   const shownCategories = Object.keys(byCategory).sort()
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
@@ -549,12 +595,23 @@ export default function ChecklistClient({
 
       {/* Empty state */}
       {items.length === 0 && (
-        <div className="text-center py-20 border border-dashed border-stone-200 rounded-xl">
-          <p className="text-stone-500 font-medium">No tasks yet</p>
-          <p className="text-stone-400 text-sm mt-1">Start from a template or add your own categories</p>
-          <Button variant="outline" className="mt-4" onClick={() => { setTemplateSelected({}); setTemplateOpen(true) }}>
-            <Sparkles className="w-3.5 h-3.5 mr-1" /> Load template
-          </Button>
+        <div className="border border-dashed border-stone-200 rounded-xl p-8">
+          <div className="text-center mb-6">
+            <Sparkles className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+            <p className="text-stone-700 font-semibold">Set up your wedding checklist</p>
+            <p className="text-stone-400 text-sm mt-1 max-w-sm mx-auto">Track every task from booking vendors to sending invites — nothing slips through</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-lg mx-auto mb-6">
+            {['Venue booking', 'Catering', 'Photography', 'Invites', 'Decor', 'Bridal wear', 'Jewelry', 'Music & DJ', 'Accommodation'].map(cat => (
+              <div key={cat} className="text-xs bg-stone-50 border border-stone-100 text-stone-500 rounded-lg px-3 py-2 text-center">{cat}</div>
+            ))}
+          </div>
+          <p className="text-center text-xs text-stone-400 mb-4">Our template includes 45 tasks across 9 categories — customize as needed</p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" size="sm" onClick={() => { setTemplateSelected({}); setTemplateOpen(true) }}>
+              <Sparkles className="w-3.5 h-3.5 mr-1" /> Load template (recommended)
+            </Button>
+          </div>
         </div>
       )}
 
@@ -646,7 +703,10 @@ export default function ChecklistClient({
                         </button>
 
                         {/* Due date (inline edit) */}
-                        <DueDateCell value={item.due_date} onSave={val => handleDueDateSave(item, val)} />
+                        <DueDateCell value={item.due_date} onSave={val => handleDueDateSave(item, val)} quickDates={quickDates} />
+
+                        {/* Assignee (inline edit) */}
+                        <AssigneeCell value={item.assignee} onSave={val => handleAssigneeSave(item, val)} />
 
                         {/* Notes icon (if no notes yet, show on hover) */}
                         {!item.notes && editingNotesId !== item.id && (

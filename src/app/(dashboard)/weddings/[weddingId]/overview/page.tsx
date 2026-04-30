@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, CalendarClock, CheckCircle2, Circle, CircleDot, Users, CalendarDays, CheckSquare, IndianRupee, ArrowRight, ShoppingBag } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, Circle, CircleDot, Users, CalendarDays, CheckSquare, IndianRupee, ArrowRight, ShoppingBag, Armchair } from 'lucide-react'
 import InviteClientPanel from './InviteClientPanel'
 
 const fmtDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
@@ -33,6 +33,8 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
     { data: enquiredVendors },
     { data: clientRequirements },
     { data: clientInvites },
+    { count: eventCount },
+    { count: tableCount },
   ] = await Promise.all([
     sc.from('weddings').select('*').eq('id', weddingId).single(),
     sc.from('checklist_items').select('id, title, category, status').eq('wedding_id', weddingId)
@@ -55,6 +57,8 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
     sc.from('vendors').select('id, name, category').eq('wedding_id', weddingId).eq('status', 'enquired').limit(3),
     sc.from('requirements').select('id, title, priority, status, side, created_at').eq('wedding_id', weddingId).order('created_at', { ascending: false }),
     sc.from('invites').select('email, accepted_at, token').eq('wedding_id', weddingId).eq('role', 'client').order('created_at', { ascending: false }),
+    sc.from('events').select('*', { count: 'exact', head: true }).eq('wedding_id', weddingId),
+    sc.from('seating_tables').select('*', { count: 'exact', head: true }).eq('wedding_id', weddingId),
   ])
 
   const daysLeft = wedding?.wedding_date
@@ -66,6 +70,17 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
 
   const hasUrgent = (overdueItems?.length ?? 0) > 0 || (upcomingPayments?.length ?? 0) > 0
   const hasSoon = (soonItems?.length ?? 0) > 0 || (enquiredVendors?.length ?? 0) > 0
+
+  const setupSteps = [
+    { key: 'events', label: 'Add wedding events', desc: 'Haldi, Sagai, Baraat, Pheras…', done: (eventCount ?? 0) > 0, href: `/weddings/${weddingId}/events`, icon: CalendarDays },
+    { key: 'guests', label: 'Add guests', desc: 'Import or add guests one by one', done: (guestTotal ?? 0) > 0, href: `/weddings/${weddingId}/guests`, icon: Users },
+    { key: 'checklist', label: 'Set up checklist', desc: 'Load template or add custom tasks', done: (checklistTotal ?? 0) > 0, href: `/weddings/${weddingId}/checklist`, icon: CheckSquare },
+    { key: 'vendors', label: 'Add vendors', desc: 'Photographer, caterer, decorator…', done: (vendorCount ?? 0) > 0, href: `/weddings/${weddingId}/vendors`, icon: ShoppingBag },
+    { key: 'seating', label: 'Plan seating', desc: 'Arrange tables and assign guests', done: (tableCount ?? 0) > 0, href: `/weddings/${weddingId}/seating`, icon: Armchair },
+  ]
+  const setupDone = setupSteps.filter(s => s.done).length
+  const setupPct = Math.round((setupDone / setupSteps.length) * 100)
+  const showSetup = setupDone < setupSteps.length
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
@@ -182,6 +197,42 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
           </p>
         </Link>
       </div>
+
+      {/* Setup Progress */}
+      {showSetup && (
+        <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-stone-800">Wedding Setup</h2>
+              <p className="text-xs text-stone-400 mt-0.5">{setupDone}/{setupSteps.length} sections complete</p>
+            </div>
+            <span className="text-sm font-semibold text-stone-500">{setupPct}%</span>
+          </div>
+          <div className="h-1.5 bg-stone-100 rounded-full mb-4 overflow-hidden">
+            <div className="h-full bg-rose-500 rounded-full transition-all" style={{ width: `${setupPct}%` }} />
+          </div>
+          <div className="space-y-1.5">
+            {setupSteps.map(step => {
+              const Icon = step.icon
+              return (
+                <Link key={step.key} href={step.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${step.done ? 'opacity-50' : 'hover:bg-stone-50'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-100' : 'bg-rose-50'}`}>
+                    {step.done
+                      ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      : <Icon className="w-3.5 h-3.5 text-rose-500" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${step.done ? 'text-stone-400 line-through' : 'text-stone-800'}`}>{step.label}</p>
+                    {!step.done && <p className="text-xs text-stone-400">{step.desc}</p>}
+                  </div>
+                  {!step.done && <ArrowRight className="w-3.5 h-3.5 text-stone-300 flex-shrink-0" />}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Client portal panel */}
       <InviteClientPanel

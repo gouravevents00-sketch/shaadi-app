@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Home, ListTodo, Users, Heart, CheckSquare, ThumbsUp } from 'lucide-react'
+import { Home, ListTodo, Users, Heart, CheckSquare, ThumbsUp, CalendarDays } from 'lucide-react'
 
 export default async function PortalLayout({
   children,
@@ -56,8 +56,9 @@ export default async function PortalLayout({
           <nav className="flex items-center gap-0.5 overflow-x-auto">
             {[
               { href: `/portal/${weddingId}`,              icon: Home,        label: 'Home' },
-              { href: `/portal/${weddingId}/guests`,       icon: Users,       label: 'Guests' },
-              { href: `/portal/${weddingId}/preferences`,  icon: Heart,       label: 'Preferences' },
+              { href: `/portal/${weddingId}/guests`,       icon: Users,        label: 'Guests' },
+              { href: `/portal/${weddingId}/functions`,    icon: CalendarDays, label: 'Functions' },
+              { href: `/portal/${weddingId}/preferences`,  icon: Heart,        label: 'Preferences' },
               { href: `/portal/${weddingId}/approvals`,    icon: ThumbsUp,    label: 'Approvals' },
               { href: `/portal/${weddingId}/requirements`, icon: ListTodo,    label: 'Wishlist' },
               { href: `/portal/${weddingId}/progress`,     icon: CheckSquare, label: 'Progress' },
@@ -79,7 +80,7 @@ export default async function PortalLayout({
       {/* Footer */}
       <footer className="border-t border-stone-200 bg-white py-3 text-center">
         <p className="text-xs text-stone-400">
-          Powered by Shaadi App · <span className="text-stone-500">{user.email}</span>
+          Powered by Creative Era OS · <span className="text-stone-500">{user.email}</span>
         </p>
       </footer>
     </div>

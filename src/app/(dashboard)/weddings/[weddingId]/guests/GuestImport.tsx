@@ -13,7 +13,7 @@ const TEMPLATE_COLUMNS = [
 ]
 const SAMPLE_ROWS = [
   ['Sharma Ji', '+91 98765 43210', 'sharma@email.com', 'groom', 'no', 'veg', '', 'Family friend'],
-  ['Rupal Auntie', '+91 91234 56789', '', 'bride', 'yes', 'jain', 'No onion garlic', 'VIP guest'],
+  ['Sunita Auntie', '+91 91234 56789', '', 'bride', 'yes', 'jain', 'No onion garlic', 'VIP guest'],
 ]
 const SIDE_NOTE = 'bride / groom / both / shared / neutral'
 const DIETARY_NOTE = 'veg / non_veg / jain / other'

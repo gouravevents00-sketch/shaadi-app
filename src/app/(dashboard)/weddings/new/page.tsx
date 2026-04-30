@@ -56,14 +56,14 @@ export default function NewWeddingPage() {
     if (result.error) {
       toast.error(result.error)
     } else {
-      toast.success('Wedding created!')
-      router.push(`/weddings/${result.id}/overview`)
+      toast.success('Wedding created! Let\'s set it up.')
+      router.push(`/weddings/${result.id}/setup`)
     }
     setLoading(false)
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-stone-900">New Wedding</h1>
         <p className="text-stone-500 text-sm mt-1">Set up a new wedding project</p>
@@ -81,12 +81,12 @@ export default function NewWeddingPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Bride's name *</Label>
-                <Input placeholder="e.g. Rupal" value={form.bride_name}
+                <Input placeholder="e.g. Priya" value={form.bride_name}
                   onChange={e => set('bride_name', e.target.value)} required />
               </div>
               <div className="space-y-1.5">
                 <Label>Groom's name *</Label>
-                <Input placeholder="e.g. Gourav" value={form.groom_name}
+                <Input placeholder="e.g. Arjun" value={form.groom_name}
                   onChange={e => set('groom_name', e.target.value)} required />
               </div>
             </div>
@@ -117,25 +117,18 @@ export default function NewWeddingPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Main venue</Label>
-                <Input placeholder="e.g. Nahargarh Palace" value={form.primary_venue}
+                <Input placeholder="e.g. Taj Hotel" value={form.primary_venue}
                   onChange={e => set('primary_venue', e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>City</Label>
-                <Input placeholder="e.g. Sawai Madhopur" value={form.primary_city}
+                <Input placeholder="e.g. Jaipur" value={form.primary_city}
                   onChange={e => set('primary_city', e.target.value)} />
               </div>
             </div>
             <p className="text-xs text-stone-400 -mt-3">
               For events at a different location (e.g. home functions in another city), add them separately in Events.
             </p>
-
-            {/* Budget */}
-            <div className="space-y-1.5">
-              <Label>Total budget (₹)</Label>
-              <Input type="number" placeholder="e.g. 7000000" value={form.budget_total}
-                onChange={e => set('budget_total', e.target.value)} />
-            </div>
 
             <div className="flex gap-3 pt-2">
               <Button type="submit" className="bg-rose-700 hover:bg-rose-800" disabled={loading}>

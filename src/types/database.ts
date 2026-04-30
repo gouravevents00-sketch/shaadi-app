@@ -357,3 +357,131 @@ export interface AppUser extends User {
   company_member: CompanyMember & { company: Company }
   wedding_access: (WeddingAccess & { wedding: Wedding })[]
 }
+
+// ─────────────────────────────────────────────────────────────
+// PHASE 2 — Org Events (Corporate / Government / Public)
+// ─────────────────────────────────────────────────────────────
+
+export type OrgEventType    = 'corporate' | 'government' | 'public'
+export type SessionType     = 'keynote' | 'panel' | 'workshop' | 'break' | 'networking' | 'other'
+export type SessionStatus   = 'scheduled' | 'live' | 'completed' | 'cancelled'
+export type SpeakerStatus   = 'invited' | 'confirmed' | 'declined'
+export type SpeakerRole     = 'speaker' | 'moderator' | 'panelist'
+export type DelegateStatus  = 'registered' | 'confirmed' | 'checked_in' | 'cancelled'
+
+export interface OrgEvent {
+  id: string
+  company_id: string
+  name: string
+  event_code: string
+  type: OrgEventType
+  status: 'setup' | 'active' | 'completed' | 'archived'
+  start_date: string | null
+  end_date: string | null
+  venue: string | null
+  city: string | null
+  expected_count: number
+  budget_total: number
+  notes: string | null
+  created_at: string
+}
+
+export interface AgendaSession {
+  id: string
+  org_event_id: string
+  title: string
+  description: string | null
+  date: string | null
+  start_time: string
+  end_time: string | null
+  venue: string | null
+  type: SessionType
+  status: SessionStatus
+  order: number
+  created_at: string
+}
+
+export interface Speaker {
+  id: string
+  org_event_id: string
+  name: string
+  title: string | null
+  organization: string | null
+  bio: string | null
+  photo_url: string | null
+  phone: string | null
+  email: string | null
+  linkedin_url: string | null
+  fill_token: string
+  status: SpeakerStatus
+  token_filled_at: string | null
+  created_at: string
+}
+
+export interface SessionSpeaker {
+  id: string
+  session_id: string
+  speaker_id: string
+  role: SpeakerRole
+}
+
+export interface Delegate {
+  id: string
+  org_event_id: string
+  name: string
+  title: string | null
+  organization: string | null
+  phone: string | null
+  email: string | null
+  dietary: DietaryPref
+  dietary_notes: string | null
+  is_vip: boolean
+  badge_printed: boolean
+  checked_in: boolean
+  checked_in_at: string | null
+  status: DelegateStatus
+  rsvp_token: string
+  notes: string | null
+  created_at: string
+}
+
+export interface DelegateSession {
+  id: string
+  delegate_id: string
+  session_id: string
+  rsvp_status: RsvpStatus
+  created_at: string
+}
+
+export interface OrgChecklistItem {
+  id: string
+  org_event_id: string
+  title: string
+  category: string
+  status: ChecklistStatus
+  due_date: string | null
+  assigned_to: string | null
+  notes: string | null
+  order: number
+  created_at: string
+}
+
+export interface ChecklistTemplate {
+  id: string
+  company_id: string | null
+  event_type: string
+  title: string
+  category: string
+  order: number
+  created_at: string
+}
+
+// ── Join types ───────────────────────────────────────────────
+
+export interface AgendaSessionWithSpeakers extends AgendaSession {
+  session_speakers: (SessionSpeaker & { speaker: Speaker })[]
+}
+
+export interface SpeakerWithSessions extends Speaker {
+  session_speakers: (SessionSpeaker & { session: AgendaSession })[]
+}

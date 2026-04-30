@@ -8,4 +8,5 @@ alter table guests
   add column if not exists arrival_booking_ref text,
   add column if not exists needs_pickup        boolean not null default false,
   add column if not exists family_members      jsonb not null default '[]',
-  add column if not exists wishes_message      text;
+  add column if not exists wishes_message      text,
+  add column if not exists rsvp_notes         text;

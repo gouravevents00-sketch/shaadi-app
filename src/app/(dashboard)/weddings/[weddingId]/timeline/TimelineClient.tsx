@@ -175,7 +175,7 @@ export default function TimelineClient({ weddingId, initialEvents, initialItems 
 
   if (initialEvents.length === 0) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-8 max-w-4xl mx-auto">
         <h1 className="text-2xl font-semibold text-stone-900 mb-2">Run of Show</h1>
         <div className="border-2 border-dashed border-stone-200 rounded-xl py-20 text-center">
           <Clock className="w-10 h-10 text-stone-300 mx-auto mb-3" />

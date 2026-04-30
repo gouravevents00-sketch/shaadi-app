@@ -28,7 +28,7 @@ export async function createItem(weddingId: string, data: {
 }
 
 export async function updateItem(weddingId: string, itemId: string, data: {
-  title?: string; category?: string; side?: string; status?: string; due_date?: string | null; notes?: string | null
+  title?: string; category?: string; side?: string; status?: string; due_date?: string | null; assignee?: string | null; notes?: string | null
 }) {
   const r = await getVerified(weddingId)
   if ('error' in r) return { error: r.error }

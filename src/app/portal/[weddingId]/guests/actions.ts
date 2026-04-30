@@ -33,7 +33,7 @@ export async function addPortalGuest(weddingId: string, data: {
     plus_count: data.plus_count ?? 0,
     notes: data.notes?.trim() || null,
     side,
-    rsvp_status: 'attending',
+    rsvp_status: 'confirmed',
     is_vip: false,
     invite_group: '',
   }).select('id').single()
@@ -41,6 +41,33 @@ export async function addPortalGuest(weddingId: string, data: {
   revalidatePath(`/portal/${weddingId}/guests`)
   revalidatePath(`/weddings/${weddingId}/guests`)
   return { id: guest.id }
+}
+
+export async function bulkImportPortalGuests(weddingId: string, guests: {
+  name: string; phone?: string; email?: string; dietary?: string; plus_count?: number
+}[]) {
+  const r = await verifyClient(weddingId)
+  if ('error' in r) return { error: r.error }
+  const side = r.side === 'bride' ? 'bride' : r.side === 'groom' ? 'groom' : 'bride'
+  const rows = guests.filter(g => g.name.trim()).map(g => ({
+    wedding_id: weddingId,
+    name: g.name.trim(),
+    phone: g.phone?.trim() || null,
+    email: g.email?.trim() || null,
+    dietary: g.dietary?.trim() || null,
+    dietary_notes: g.dietary?.trim() || null,
+    plus_count: g.plus_count ?? 0,
+    side,
+    rsvp_status: 'confirmed',
+    is_vip: false,
+    invite_group: '',
+  }))
+  if (rows.length === 0) return { error: 'No valid guests' }
+  const { error } = await r.sc.from('guests').insert(rows)
+  if (error) return { error: error.message }
+  revalidatePath(`/portal/${weddingId}/guests`)
+  revalidatePath(`/weddings/${weddingId}/guests`)
+  return { count: rows.length }
 }
 
 export async function deletePortalGuest(weddingId: string, guestId: string) {

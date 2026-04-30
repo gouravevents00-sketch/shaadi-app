@@ -9,7 +9,8 @@ export default async function GuestsPage({ params }: { params: Promise<{ wedding
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: guests }, { data: events }, { data: guestEvents }] = await Promise.all([
+  const [{ data: wedding }, { data: guests }, { data: events }, { data: guestEvents }] = await Promise.all([
+    supabase.from('weddings').select('bride_name, groom_name, wedding_date, primary_city').eq('id', weddingId).single(),
     supabase.from('guests').select('*').eq('wedding_id', weddingId).order('name'),
     supabase.from('events').select('id, name, date, start_time, type').eq('wedding_id', weddingId).order('date').order('start_time'),
     supabase.from('guest_events').select('guest_id, event_id, rsvp_status')
@@ -19,6 +20,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ wedding
   return (
     <GuestsClient
       weddingId={weddingId}
+      wedding={wedding ?? { bride_name: '', groom_name: '', wedding_date: null, primary_city: null }}
       initialGuests={guests ?? []}
       events={events ?? []}
       guestEvents={guestEvents ?? []}
