@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2, X, Clock, User, CalendarDays, Users, MapPin, ExternalLink, Loader2 } from 'lucide-react'
+import { CheckCircle2, X, Clock, User, CalendarDays, Users, MapPin, ExternalLink, Loader2, TrendingUp, IndianRupee } from 'lucide-react'
 import Link from 'next/link'
 import { acceptLead, declineLead } from './actions'
+
+type ProgressInfo = { total: number; done: number; nextEvent: string | null }
 
 interface Lead {
   id: string
@@ -43,7 +45,10 @@ function fmtAgo(d: string) {
   return `${days}d ago`
 }
 
-export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
+export default function LeadsClient({ initialLeads, progressMap = {} }: {
+  initialLeads: Lead[]
+  progressMap?: Record<string, ProgressInfo>
+}) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [processing, setProcessing] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -77,14 +82,47 @@ export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) 
   }
 
   const filtered = leads.filter(l => l.status === tab)
-  const pendingCount = leads.filter(l => l.status === 'pending').length
+  const pendingCount  = leads.filter(l => l.status === 'pending').length
+  const acceptedCount = leads.filter(l => l.status === 'accepted').length
+  const pipelineValue = leads
+    .filter(l => l.status !== 'declined' && l.celebration?.budget)
+    .reduce((s, l) => s + (l.celebration?.budget ?? 0), 0)
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-stone-900">Leads</h1>
-        <p className="text-stone-500 text-sm mt-1">Clients who want to connect via Creative Era OS</p>
+        <h1 className="text-2xl font-semibold text-stone-900">Leads & CRM</h1>
+        <p className="text-stone-500 text-sm mt-1">Manage client enquiries and active event pipeline</p>
+      </div>
+
+      {/* Pipeline metrics */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="w-4 h-4 text-amber-500" />
+            <p className="text-xs text-stone-500 font-medium">Pending</p>
+          </div>
+          <p className="text-2xl font-bold text-stone-900">{pendingCount}</p>
+        </div>
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <p className="text-xs text-stone-500 font-medium">Active</p>
+          </div>
+          <p className="text-2xl font-bold text-stone-900">{acceptedCount}</p>
+        </div>
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <IndianRupee className="w-4 h-4 text-rose-500" />
+            <p className="text-xs text-stone-500 font-medium">Pipeline</p>
+          </div>
+          <p className="text-lg font-bold text-stone-900">
+            {pipelineValue >= 100000
+              ? `₹${(pipelineValue / 100000).toFixed(1)}L`
+              : pipelineValue > 0 ? `₹${pipelineValue.toLocaleString('en-IN')}` : '—'}
+          </p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -210,14 +248,40 @@ export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) 
                 </div>
               )}
 
-              {lead.status === 'accepted' && lead.wedding_id && (
-                <div className="px-5 py-3 bg-stone-50 border-t border-stone-100 flex justify-end">
-                  <Link href={`/weddings/${lead.wedding_id}/overview`}
-                    className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-800 font-medium">
-                    Open wedding <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              )}
+              {lead.status === 'accepted' && lead.wedding_id && (() => {
+                const prog = progressMap[lead.wedding_id]
+                const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : null
+                return (
+                  <div className="px-5 py-3 bg-stone-50 border-t border-stone-100 space-y-2">
+                    {prog && prog.total > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-stone-500">Checklist progress</span>
+                          <span className="text-xs font-medium text-stone-700">{prog.done}/{prog.total} · {pct}%</span>
+                        </div>
+                        <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    {prog?.nextEvent && (
+                      <p className="text-xs text-stone-500 flex items-center gap-1">
+                        <CalendarDays className="w-3 h-3" /> Next: {prog.nextEvent}
+                      </p>
+                    )}
+                    <div className="flex gap-3 pt-1">
+                      <Link href={`/weddings/${lead.wedding_id}/overview`}
+                        className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-800 font-medium">
+                        Open wedding <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
+                      <Link href={`/weddings/${lead.wedding_id}/checklist`}
+                        className="text-sm text-stone-500 hover:text-stone-700">
+                        Checklist →
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           ))}
         </div>

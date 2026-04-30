@@ -45,5 +45,31 @@ export default async function LeadsPage() {
     client_email: emailMap[c.user_id] ?? null,
   }))
 
-  return <LeadsClient initialLeads={leads} />
+  type LeadRow = { id: string; status: string; wedding_id: string | null; celebration: { budget: number } | null }
+  // Fetch checklist progress for accepted leads
+  const acceptedWeddingIds = (leads as LeadRow[]).filter(l => l.status === 'accepted' && l.wedding_id).map(l => l.wedding_id as string)
+  const progressMap: Record<string, { total: number; done: number; nextEvent: string | null }> = {}
+
+  if (acceptedWeddingIds.length > 0) {
+    const [{ data: checklistCounts }, { data: nextEvents }] = await Promise.all([
+      sc.from('checklist_items').select('wedding_id, status').in('wedding_id', acceptedWeddingIds),
+      sc.from('events').select('wedding_id, name, date')
+        .in('wedding_id', acceptedWeddingIds)
+        .gte('date', new Date().toISOString().slice(0, 10))
+        .order('date').limit(acceptedWeddingIds.length),
+    ])
+
+    for (const wid of acceptedWeddingIds) {
+      const items = (checklistCounts ?? []).filter((i: { wedding_id: string; status: string }) => i.wedding_id === wid)
+      const done = items.filter((i: { wedding_id: string; status: string }) => i.status === 'done').length
+      const ev = (nextEvents ?? []).find((e: { wedding_id: string; name: string; date: string }) => e.wedding_id === wid)
+      progressMap[wid] = {
+        total: items.length,
+        done,
+        nextEvent: ev ? `${ev.name} · ${new Date(ev.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : null,
+      }
+    }
+  }
+
+  return <LeadsClient initialLeads={leads} progressMap={progressMap} />
 }

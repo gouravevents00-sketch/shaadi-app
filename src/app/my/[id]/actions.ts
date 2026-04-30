@@ -41,28 +41,33 @@ export async function upgradeToPro(celebrationId: string) {
   const sc = createServiceClient()
 
   // Verify celebration belongs to user
-  const { data: celebration } = await sc.from('celebrations')
-    .select('id, user_id, name, type, date, guest_count, company_id, wedding_id, plan')
+  // NOTE: column is event_date (not date), and company_id/wedding_id added by sprint1 migration
+  const { data: celebration, error: celErr } = await sc.from('celebrations')
+    .select('id, user_id, name, type, event_date, guest_count, company_id, wedding_id, plan')
     .eq('id', celebrationId).eq('user_id', user.id).single()
-  if (!celebration) return { error: 'No access' }
+  if (celErr || !celebration) return { error: celErr?.message ?? 'No access' }
 
   // Already upgraded — just return the existing weddingId
   if (celebration.plan === 'pro' && celebration.wedding_id) {
-    return { ok: true, weddingId: celebration.wedding_id }
+    return { ok: true, weddingId: celebration.wedding_id as string }
   }
 
   // 1. Get or create personal company for this user
+  // Two-step: get user's memberships, then find one whose company is personal
   let companyId: string
-  const { data: personalCompany } = await sc.from('companies')
-    .select('id, company_members!inner(user_id)')
-    .eq('is_personal', true)
-    .eq('company_members.user_id', user.id)
-    .maybeSingle()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const memberRow = personalCompany as any
+  const { data: memberships } = await sc.from('company_members')
+    .select('company_id').eq('user_id', user.id)
+  const memberCompanyIds = (memberships ?? []).map((m: { company_id: string }) => m.company_id)
 
-  if (memberRow?.id) {
-    companyId = memberRow.id
+  let existingPersonalId: string | null = null
+  if (memberCompanyIds.length > 0) {
+    const { data: personalCo } = await sc.from('companies')
+      .select('id').eq('is_personal', true).in('id', memberCompanyIds).maybeSingle()
+    existingPersonalId = personalCo?.id ?? null
+  }
+
+  if (existingPersonalId) {
+    companyId = existingPersonalId
   } else {
     const personalSlug = `personal-${user.id.replace(/-/g, '').slice(0, 10)}`
     const { data: newCompany, error: companyErr } = await sc.from('companies').insert({
@@ -73,26 +78,25 @@ export async function upgradeToPro(celebrationId: string) {
     if (companyErr || !newCompany) return { error: companyErr?.message ?? 'Could not create personal company' }
     companyId = newCompany.id
 
-    // Add user as owner member
-    await sc.from('company_members').insert({
+    const { error: memberErr } = await sc.from('company_members').insert({
       company_id: companyId,
       user_id: user.id,
       role: 'owner',
     })
+    if (memberErr) return { error: memberErr.message }
   }
 
   // 2. Create wedding record from celebration data
-  // bride_name/groom_name repurposed: bride_name = event name, groom_name = '' for non-wedding
   const eventCode = 'P' + Date.now().toString(36).toUpperCase().slice(-5) + Math.random().toString(36).slice(2, 4).toUpperCase()
   const { data: wedding, error: weddingErr } = await sc.from('weddings').insert({
     company_id: companyId,
     bride_name: celebration.name ?? 'My Event',
     groom_name: '',
     wedding_code: eventCode,
-    celebration_type: celebration.type ?? 'wedding',   // sprint1 column
-    owner_type: 'individual',                           // sprint1 column
-    owner_user_id: user.id,                             // sprint1 column
-    wedding_date: celebration.date ?? null,
+    celebration_type: celebration.type ?? 'wedding',
+    owner_type: 'individual',
+    owner_user_id: user.id,
+    wedding_date: (celebration.event_date as string | null) ?? null,
   }).select('id').single()
   if (weddingErr || !wedding) return { error: weddingErr?.message ?? 'Could not create event record' }
 
