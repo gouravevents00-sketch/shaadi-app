@@ -27,6 +27,16 @@ export async function createCategory(weddingId: string, data: { name: string; es
   return { id: cat.id }
 }
 
+export async function bulkCreateCategories(weddingId: string, cats: { name: string; estimated: number; order: number }[]) {
+  const r = await getVerified(weddingId)
+  if ('error' in r) return { error: r.error }
+  const rows = cats.map(c => ({ wedding_id: weddingId, name: c.name, estimated: c.estimated, order: c.order }))
+  const { error } = await r.sc.from('budget_categories').insert(rows)
+  if (error) return { error: error.message }
+  revalidatePath(PATH(weddingId))
+  return { created: rows.length }
+}
+
 export async function updateCategory(weddingId: string, catId: string, data: { name?: string; estimated?: number }) {
   const r = await getVerified(weddingId)
   if ('error' in r) return { error: r.error }

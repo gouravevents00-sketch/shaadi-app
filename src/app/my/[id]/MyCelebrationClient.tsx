@@ -582,7 +582,7 @@ export default function MyCelebrationClient({
                       if ('error' in res) { toast.error(res.error); return }
                       setIsPro(true)
                       toast.success('You\'re on Pro! Setting up your dashboard…')
-                      if (res.weddingId) router.push(`/weddings/${res.weddingId}/overview`)
+                      if (res.weddingId) router.push(`/weddings/${res.weddingId}/setup`)
                     })
                   }}
                   className="inline-flex items-center gap-1.5 text-xs bg-rose-700 text-white px-3 py-1.5 rounded-lg hover:bg-rose-800 disabled:opacity-50 transition-colors">

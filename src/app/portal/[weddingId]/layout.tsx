@@ -35,7 +35,7 @@ export default async function PortalLayout({
 
   if (!wedding) redirect('/login')
 
-  const coupleNames = `${wedding.bride_name} & ${wedding.groom_name}`
+  const coupleNames = wedding.groom_name ? `${wedding.bride_name} & ${wedding.groom_name}` : wedding.bride_name
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">

@@ -11,10 +11,11 @@ export async function signupWithCompany(data: {
   const supabase = await createClient()
   const sc = createServiceClient()
 
-  // 1. Sign up the user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // 1. Sign up the user via admin (auto-confirms email, no confirmation email needed)
+  const { data: authData, error: authError } = await sc.auth.admin.createUser({
     email: data.email,
     password: data.password,
+    email_confirm: true,
   })
   if (authError) return { error: authError.message }
   const userId = authData.user?.id

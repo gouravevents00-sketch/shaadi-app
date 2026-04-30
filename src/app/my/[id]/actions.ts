@@ -43,7 +43,7 @@ export async function upgradeToPro(celebrationId: string) {
   // Verify celebration belongs to user
   // NOTE: column is event_date (not date), and company_id/wedding_id added by sprint1 migration
   const { data: celebration, error: celErr } = await sc.from('celebrations')
-    .select('id, user_id, name, type, event_date, guest_count, company_id, wedding_id, plan')
+    .select('id, user_id, name, type, event_date, guest_count, company_id, wedding_id, plan, venue, city')
     .eq('id', celebrationId).eq('user_id', user.id).single()
   if (celErr || !celebration) return { error: celErr?.message ?? 'No access' }
 
@@ -88,6 +88,7 @@ export async function upgradeToPro(celebrationId: string) {
 
   // 2. Create wedding record from celebration data
   const eventCode = 'P' + Date.now().toString(36).toUpperCase().slice(-5) + Math.random().toString(36).slice(2, 4).toUpperCase()
+  const cel = celebration as typeof celebration & { venue?: string | null; city?: string | null }
   const { data: wedding, error: weddingErr } = await sc.from('weddings').insert({
     company_id: companyId,
     bride_name: celebration.name ?? 'My Event',
@@ -97,6 +98,9 @@ export async function upgradeToPro(celebrationId: string) {
     owner_type: 'individual',
     owner_user_id: user.id,
     wedding_date: (celebration.event_date as string | null) ?? null,
+    primary_venue: cel.venue ?? null,
+    primary_city: cel.city ?? null,
+    expected_guests: celebration.guest_count ?? null,
   }).select('id').single()
   if (weddingErr || !wedding) return { error: weddingErr?.message ?? 'Could not create event record' }
 

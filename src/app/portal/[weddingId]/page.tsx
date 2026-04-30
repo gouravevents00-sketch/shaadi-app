@@ -45,7 +45,7 @@ export default async function PortalHome({ params }: { params: Promise<{ wedding
       <div className="bg-gradient-to-br from-rose-700 to-rose-900 rounded-2xl p-6 text-white">
         <p className="text-rose-200 text-sm mb-1">Your wedding</p>
         <h1 className="text-2xl font-bold mb-1">
-          {wedding?.bride_name} &amp; {wedding?.groom_name}
+          {wedding?.bride_name}{wedding?.groom_name ? ` & ${wedding.groom_name}` : ''}
         </h1>
         {wedding?.primary_venue && (
           <p className="text-rose-200 text-sm">

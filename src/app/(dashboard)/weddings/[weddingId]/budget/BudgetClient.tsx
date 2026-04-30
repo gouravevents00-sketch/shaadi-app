@@ -11,6 +11,7 @@ import {
   createCategory, updateCategory, deleteCategory,
   createItem, updateItem, deleteItem,
   importFromChecklist, syncFromVendors, deduplicateCategories,
+  bulkCreateCategories,
 } from './actions'
 import { usePrivacy } from '@/contexts/PrivacyContext'
 
@@ -109,6 +110,8 @@ export default function BudgetClient({
   const [syncing, setSyncing] = useState(false)
   const [importing, setImporting] = useState(false)
   const [deduping, setDeduping] = useState(false)
+  const [applyingSuggested, setApplyingSuggested] = useState(false)
+  const [showSuggested, setShowSuggested] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
   const [catForm, setCatForm] = useState({ name: '', estimated: '' })
   const [catLoading, setCatLoading] = useState(false)
@@ -188,6 +191,33 @@ export default function BudgetClient({
     if (r.error) { toast.error(r.error); return }
     const msg = [r.created && `${r.created} added`, r.updated && `${r.updated} updated`].filter(Boolean).join(', ')
     toast.success(msg || 'Already in sync')
+    window.location.reload()
+  }
+
+  async function handleApplySuggested() {
+    if (!budgetTotal) return
+    setApplyingSuggested(true)
+    const breakdown = [
+      { name: 'Catering',               pct: 0.35 },
+      { name: 'Decor & Floral',          pct: 0.20 },
+      { name: 'Photography & Video',     pct: 0.12 },
+      { name: 'Venue',                   pct: 0.10 },
+      { name: 'Music & Entertainment',   pct: 0.08 },
+      { name: 'Makeup & Hair',           pct: 0.05 },
+      { name: 'Transport',               pct: 0.03 },
+      { name: 'Mehandi',                 pct: 0.02 },
+      { name: 'Pandit & Rituals',        pct: 0.02 },
+      { name: 'Miscellaneous',           pct: 0.03 },
+    ]
+    const cats = breakdown.map((c, i) => ({
+      name: c.name,
+      estimated: Math.round((budgetTotal * c.pct) / 1000) * 1000, // round to nearest 1000
+      order: i + 1,
+    }))
+    const r = await bulkCreateCategories(weddingId, cats)
+    setApplyingSuggested(false)
+    if (r.error) { toast.error(r.error); return }
+    toast.success('Budget breakdown applied!')
     window.location.reload()
   }
 
@@ -330,48 +360,94 @@ export default function BudgetClient({
 
       {/* Empty state */}
       {isEmpty ? (
-        <div className="border border-dashed border-stone-200 rounded-xl p-12 text-center">
-          {hasVendors ? (
-            <>
-              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
-                <RefreshCw className="w-6 h-6 text-blue-600" />
+        <div className="space-y-4">
+          {/* Smart breakdown card — shown when budgetTotal is set */}
+          {budgetTotal > 0 && (
+            <div className="border border-rose-200 bg-rose-50 rounded-xl p-5">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <p className="font-semibold text-rose-900 mb-0.5">Suggested breakdown for {fmt(budgetTotal)}</p>
+                  <p className="text-xs text-rose-700">Based on typical Indian wedding spending patterns — apply in one click and adjust as needed.</p>
+                </div>
+                <button onClick={() => setShowSuggested(s => !s)} className="text-xs text-rose-600 hover:text-rose-800 font-medium flex-shrink-0">
+                  {showSuggested ? 'Hide' : 'Preview'}
+                </button>
               </div>
-              <p className="font-semibold text-stone-900 mb-1">Sync categories from your vendors</p>
-              <p className="text-stone-400 text-sm mb-6 max-w-xs mx-auto">
-                You already have {vendors.length} vendor{vendors.length > 1 ? 's' : ''} — their categories will become budget categories automatically.
-              </p>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSyncVendors} disabled={syncing}>
-                {syncing ? 'Syncing…' : '⚡ Sync from vendors'}
-              </Button>
-              {canImport && (
-                <p className="text-xs text-stone-400 mt-3">
-                  Or <button className="underline hover:text-stone-600" onClick={handleImport}>import from checklist</button>
-                </p>
+              {showSuggested && (
+                <div className="mb-4 space-y-1.5">
+                  {[
+                    { name: 'Catering',             pct: 0.35 },
+                    { name: 'Decor & Floral',        pct: 0.20 },
+                    { name: 'Photography & Video',   pct: 0.12 },
+                    { name: 'Venue',                 pct: 0.10 },
+                    { name: 'Music & Entertainment', pct: 0.08 },
+                    { name: 'Makeup & Hair',         pct: 0.05 },
+                    { name: 'Transport',             pct: 0.03 },
+                    { name: 'Mehandi',               pct: 0.02 },
+                    { name: 'Pandit & Rituals',      pct: 0.02 },
+                    { name: 'Miscellaneous',         pct: 0.03 },
+                  ].map(c => (
+                    <div key={c.name} className="flex items-center gap-3">
+                      <span className="text-xs text-rose-800 w-40 flex-shrink-0">{c.name}</span>
+                      <div className="flex-1 h-1.5 bg-rose-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-rose-500 rounded-full" style={{ width: `${c.pct * 100 / 0.35}%` }} />
+                      </div>
+                      <span className="text-xs font-medium text-rose-900 w-20 text-right flex-shrink-0">
+                        {fmt(Math.round((budgetTotal * c.pct) / 1000) * 1000)} <span className="text-rose-500 font-normal">({Math.round(c.pct * 100)}%)</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </>
-          ) : canImport ? (
-            <>
-              <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-6 h-6 text-rose-600" />
-              </div>
-              <p className="font-semibold text-stone-900 mb-1">Auto-create from checklist</p>
-              <p className="text-stone-400 text-sm mb-6 max-w-xs mx-auto">
-                Your checklist categories become budget categories. Set one rupee amount per category.
-              </p>
-              <Button className="bg-rose-700 hover:bg-rose-800" onClick={handleImport} disabled={importing}>
-                {importing ? 'Importing…' : '⚡ Import categories'}
+              <Button className="bg-rose-700 hover:bg-rose-800 w-full sm:w-auto" onClick={handleApplySuggested} disabled={applyingSuggested}>
+                {applyingSuggested ? 'Applying…' : '✦ Apply this breakdown'}
               </Button>
-              <p className="text-xs text-stone-400 mt-4">
-                Or <button className="underline hover:text-stone-600" onClick={() => setCatOpen(true)}>add manually</button>
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-stone-500 font-medium">No categories yet</p>
-              <p className="text-stone-400 text-sm mt-1 mb-4">Add vendors or checklist items first to auto-import.</p>
-              <Button variant="outline" onClick={() => setCatOpen(true)}><Plus className="w-3.5 h-3.5 mr-1" /> Add category</Button>
-            </>
+            </div>
           )}
+
+          <div className="border border-dashed border-stone-200 rounded-xl p-10 text-center">
+            {hasVendors ? (
+              <>
+                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                  <RefreshCw className="w-6 h-6 text-blue-600" />
+                </div>
+                <p className="font-semibold text-stone-900 mb-1">Or sync categories from your vendors</p>
+                <p className="text-stone-400 text-sm mb-6 max-w-xs mx-auto">
+                  You already have {vendors.length} vendor{vendors.length > 1 ? 's' : ''} — their categories will become budget categories automatically.
+                </p>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSyncVendors} disabled={syncing}>
+                  {syncing ? 'Syncing…' : '⚡ Sync from vendors'}
+                </Button>
+                {canImport && (
+                  <p className="text-xs text-stone-400 mt-3">
+                    Or <button className="underline hover:text-stone-600" onClick={handleImport}>import from checklist</button>
+                  </p>
+                )}
+              </>
+            ) : canImport ? (
+              <>
+                <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-6 h-6 text-rose-600" />
+                </div>
+                <p className="font-semibold text-stone-900 mb-1">Or auto-create from checklist</p>
+                <p className="text-stone-400 text-sm mb-6 max-w-xs mx-auto">
+                  Your checklist categories become budget categories. Set one rupee amount per category.
+                </p>
+                <Button className="bg-rose-700 hover:bg-rose-800" onClick={handleImport} disabled={importing}>
+                  {importing ? 'Importing…' : '⚡ Import categories'}
+                </Button>
+                <p className="text-xs text-stone-400 mt-4">
+                  Or <button className="underline hover:text-stone-600" onClick={() => setCatOpen(true)}>add manually</button>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-stone-500 font-medium">No categories yet</p>
+                <p className="text-stone-400 text-sm mt-1 mb-4">Add vendors or checklist items first to auto-import.</p>
+                <Button variant="outline" onClick={() => setCatOpen(true)}><Plus className="w-3.5 h-3.5 mr-1" /> Add category</Button>
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <>

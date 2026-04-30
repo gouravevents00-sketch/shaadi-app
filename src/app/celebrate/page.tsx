@@ -28,7 +28,7 @@ export default function CelebratePage() {
           <span className="font-semibold text-stone-900">Creative Era OS</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/celebrate/signup" className="text-sm text-stone-600 hover:text-stone-900">Sign in</Link>
+          <Link href="/celebrate/signup?mode=signin" className="text-sm text-stone-600 hover:text-stone-900">Already have account? Sign in</Link>
           <Link href="/celebrate/new"
             className="text-sm bg-rose-700 text-white px-4 py-2 rounded-lg hover:bg-rose-800 transition-colors">
             Start free

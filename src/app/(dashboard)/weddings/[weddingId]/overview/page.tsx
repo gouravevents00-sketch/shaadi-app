@@ -1,10 +1,141 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, CalendarClock, CheckCircle2, Circle, CircleDot, Users, CalendarDays, CheckSquare, IndianRupee, ArrowRight, ShoppingBag, Armchair } from 'lucide-react'
+import {
+  AlertTriangle, CalendarClock, CheckCircle2, Circle, CircleDot,
+  Users, CalendarDays, CheckSquare, IndianRupee, ArrowRight,
+  ShoppingBag, Armchair, Sparkles, Zap, Phone,
+} from 'lucide-react'
 import InviteClientPanel from './InviteClientPanel'
 
 const fmtDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+
+// ─── Next Action Engine ────────────────────────────────────────────────────────
+
+type NextAction = {
+  message: string
+  sub?: string
+  href: string
+  cta: string
+  tone: 'urgent' | 'warn' | 'info' | 'good'
+}
+
+function computeNextAction({
+  weddingId, overdueCount, unbookedVendors, staleVendors, budgetEmpty, budgetTotal,
+  guestTotal, rsvpYes, rsvpNo, checklistPct, daysLeft, upcomingPayments, eventCount, checklistTotal,
+}: {
+  weddingId: string
+  overdueCount: number
+  unbookedVendors: { id: string; name: string; category: string }[]
+  staleVendors: { id: string; name: string; category: string; created_at: string }[]
+  budgetEmpty: boolean
+  budgetTotal: number
+  guestTotal: number
+  rsvpYes: number
+  rsvpNo: number
+  checklistPct: number
+  daysLeft: number | null
+  upcomingPayments: { id: string; amount: number; due_date: string }[]
+  eventCount: number
+  checklistTotal: number
+}): NextAction {
+
+  // 1. Overdue checklist items
+  if (overdueCount > 0) return {
+    message: `${overdueCount} checklist task${overdueCount > 1 ? 's are' : ' is'} overdue`,
+    sub: 'These need to be done — check and mark complete or reschedule.',
+    href: `/weddings/${weddingId}/checklist`,
+    cta: 'View checklist', tone: 'urgent',
+  }
+
+  // 2. Ceremonies added but vendor slots not filled in
+  if (unbookedVendors.length > 0) {
+    const names = unbookedVendors.slice(0, 2).map(v => v.category).join(', ')
+    const extra = unbookedVendors.length > 2 ? ` +${unbookedVendors.length - 2} more` : ''
+    return {
+      message: `${unbookedVendors.length} vendor slot${unbookedVendors.length > 1 ? 's' : ''} still need booking`,
+      sub: `${names}${extra} — added from your ceremonies but not yet confirmed.`,
+      href: `/weddings/${weddingId}/vendors`,
+      cta: 'Book vendors', tone: 'urgent',
+    }
+  }
+
+  // 3. Payment due soon
+  if (upcomingPayments.length > 0) {
+    const p = upcomingPayments[0] as { id: string; amount: number; due_date: string }
+    const days = Math.ceil((new Date(p.due_date).getTime() - Date.now()) / 86400000)
+    return {
+      message: `Payment due in ${days} day${days !== 1 ? 's' : ''}`,
+      sub: `₹${p.amount.toLocaleString('en-IN')} — don't miss this deadline.`,
+      href: `/weddings/${weddingId}/vendors`,
+      cta: 'View payments', tone: days <= 3 ? 'urgent' : 'warn',
+    }
+  }
+
+  // 4. Stale vendor enquiries (no update in 3+ days)
+  if (staleVendors.length > 0) {
+    const v = staleVendors[0]
+    const days = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86400000)
+    return {
+      message: `Follow up with ${v.name}`,
+      sub: `Still showing as "enquired" — ${days} days with no update. Time to confirm or replace.`,
+      href: `/weddings/${weddingId}/vendors`,
+      cta: 'Update status', tone: 'warn',
+    }
+  }
+
+  // 5. Events added but no checklist set up
+  if (eventCount > 0 && checklistTotal === 0) return {
+    message: 'Your ceremonies are set — now load a checklist',
+    sub: 'Use the template to get 45 tasks across 9 categories in one click.',
+    href: `/weddings/${weddingId}/checklist`,
+    cta: 'Load template', tone: 'info',
+  }
+
+  // 6. Budget set but not broken down
+  if (budgetTotal > 0 && budgetEmpty) return {
+    message: 'Budget is set but not allocated',
+    sub: `You have ₹${budgetTotal >= 100000 ? `${(budgetTotal / 100000).toFixed(1)}L` : budgetTotal.toLocaleString('en-IN')} total — break it down by category to track spending.`,
+    href: `/weddings/${weddingId}/budget`,
+    cta: 'Set up budget', tone: 'info',
+  }
+
+  // 7. Guests added but no RSVPs collected
+  if (guestTotal > 5 && rsvpYes === 0 && rsvpNo === 0) return {
+    message: `${guestTotal} guests added — start collecting RSVPs`,
+    sub: 'Send personalised WhatsApp RSVP links from the guests page.',
+    href: `/weddings/${weddingId}/guests`,
+    cta: 'Send RSVPs', tone: 'info',
+  }
+
+  // 8. No events added yet
+  if (eventCount === 0) return {
+    message: 'Add your wedding ceremonies first',
+    sub: 'Mehandi, Haldi, Baraat, Pheras — adding them auto-generates your checklist, vendors, and budget.',
+    href: `/weddings/${weddingId}/events`,
+    cta: 'Add ceremonies', tone: 'info',
+  }
+
+  // 9. Wedding close but checklist not done
+  if (daysLeft !== null && daysLeft <= 30 && daysLeft > 0 && checklistPct < 60) return {
+    message: `Wedding in ${daysLeft} days — checklist is only ${checklistPct}% done`,
+    sub: 'Time to accelerate. Focus on pending vendor confirmations and guest count.',
+    href: `/weddings/${weddingId}/checklist`,
+    cta: 'Review checklist', tone: 'warn',
+  }
+
+  // 10. All good
+  return {
+    message: daysLeft !== null && daysLeft > 0 && daysLeft <= 60
+      ? `${daysLeft} days to go — everything is on track`
+      : 'Everything looks good',
+    sub: 'No urgent actions. Keep adding details and tracking progress.',
+    href: `/weddings/${weddingId}/checklist`,
+    cta: 'View checklist', tone: 'good',
+  }
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function OverviewPage({ params }: { params: Promise<{ weddingId: string }> }) {
   const { weddingId } = await params
@@ -16,6 +147,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
   const today = new Date().toISOString().split('T')[0]
   const in7  = new Date(Date.now() + 7  * 86400000).toISOString().split('T')[0]
   const in14 = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]
+  const ago3 = new Date(Date.now() - 3  * 86400000).toISOString()
 
   const [
     { data: wedding },
@@ -35,6 +167,10 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
     { data: clientInvites },
     { count: eventCount },
     { count: tableCount },
+    // Next Action extras
+    { data: unbookedVendors },
+    { data: staleEnquiredVendors },
+    { count: budgetCatCount },
   ] = await Promise.all([
     sc.from('weddings').select('*').eq('id', weddingId).single(),
     sc.from('checklist_items').select('id, title, category, status').eq('wedding_id', weddingId)
@@ -59,6 +195,15 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
     sc.from('invites').select('email, accepted_at, token').eq('wedding_id', weddingId).eq('role', 'client').order('created_at', { ascending: false }),
     sc.from('events').select('*', { count: 'exact', head: true }).eq('wedding_id', weddingId),
     sc.from('seating_tables').select('*', { count: 'exact', head: true }).eq('wedding_id', weddingId),
+    // Unbooked vendor slots: total_amount=0, phone=null, contact_name=null (auto-created placeholders)
+    sc.from('vendors').select('id, name, category')
+      .eq('wedding_id', weddingId).eq('total_amount', 0).is('phone', null).is('contact_name', null)
+      .neq('status', 'cancelled').limit(10),
+    // Stale enquiries: status=enquired, created more than 3 days ago, no phone
+    sc.from('vendors').select('id, name, category, created_at')
+      .eq('wedding_id', weddingId).eq('status', 'enquired').is('phone', null)
+      .lt('created_at', ago3).limit(5),
+    sc.from('budget_categories').select('*', { count: 'exact', head: true }).eq('wedding_id', weddingId),
   ])
 
   const daysLeft = wedding?.wedding_date
@@ -71,24 +216,53 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
   const hasUrgent = (overdueItems?.length ?? 0) > 0 || (upcomingPayments?.length ?? 0) > 0
   const hasSoon = (soonItems?.length ?? 0) > 0 || (enquiredVendors?.length ?? 0) > 0
 
+  // ── Next Action ──────────────────────────────────────────────────────────────
+  type PaymentRow = { id: string; amount: number; due_date: string }
+  const nextAction = computeNextAction({
+    weddingId,
+    overdueCount: overdueItems?.length ?? 0,
+    unbookedVendors: (unbookedVendors ?? []) as { id: string; name: string; category: string }[],
+    staleVendors: (staleEnquiredVendors ?? []) as { id: string; name: string; category: string; created_at: string }[],
+    budgetEmpty: (budgetCatCount ?? 0) === 0,
+    budgetTotal: wedding?.budget_total ?? 0,
+    guestTotal: guestTotal ?? 0,
+    rsvpYes: rsvpYes ?? 0,
+    rsvpNo: rsvpNo ?? 0,
+    checklistPct,
+    daysLeft,
+    upcomingPayments: (upcomingPayments ?? []) as PaymentRow[],
+    eventCount: eventCount ?? 0,
+    checklistTotal: checklistTotal ?? 0,
+  })
+
+  const toneStyle = {
+    urgent: { wrap: 'bg-rose-50 border-rose-200',   icon: 'bg-rose-100 text-rose-600',    title: 'text-rose-900',   sub: 'text-rose-700',   btn: 'bg-rose-700 hover:bg-rose-800 text-white' },
+    warn:   { wrap: 'bg-amber-50 border-amber-200', icon: 'bg-amber-100 text-amber-600',  title: 'text-amber-900',  sub: 'text-amber-700',  btn: 'bg-amber-600 hover:bg-amber-700 text-white' },
+    info:   { wrap: 'bg-blue-50 border-blue-200',   icon: 'bg-blue-100 text-blue-600',    title: 'text-blue-900',   sub: 'text-blue-700',   btn: 'bg-blue-700 hover:bg-blue-800 text-white' },
+    good:   { wrap: 'bg-emerald-50 border-emerald-200', icon: 'bg-emerald-100 text-emerald-600', title: 'text-emerald-900', sub: 'text-emerald-700', btn: 'bg-emerald-700 hover:bg-emerald-800 text-white' },
+  }[nextAction.tone]
+
+  const NextIcon = { urgent: AlertTriangle, warn: CalendarClock, info: Zap, good: Sparkles }[nextAction.tone]
+
+  // ── Setup steps ──────────────────────────────────────────────────────────────
   const setupSteps = [
-    { key: 'events', label: 'Add wedding events', desc: 'Haldi, Sagai, Baraat, Pheras…', done: (eventCount ?? 0) > 0, href: `/weddings/${weddingId}/events`, icon: CalendarDays },
-    { key: 'guests', label: 'Add guests', desc: 'Import or add guests one by one', done: (guestTotal ?? 0) > 0, href: `/weddings/${weddingId}/guests`, icon: Users },
-    { key: 'checklist', label: 'Set up checklist', desc: 'Load template or add custom tasks', done: (checklistTotal ?? 0) > 0, href: `/weddings/${weddingId}/checklist`, icon: CheckSquare },
-    { key: 'vendors', label: 'Add vendors', desc: 'Photographer, caterer, decorator…', done: (vendorCount ?? 0) > 0, href: `/weddings/${weddingId}/vendors`, icon: ShoppingBag },
-    { key: 'seating', label: 'Plan seating', desc: 'Arrange tables and assign guests', done: (tableCount ?? 0) > 0, href: `/weddings/${weddingId}/seating`, icon: Armchair },
+    { key: 'events',   label: 'Add wedding events',  desc: 'Haldi, Sagai, Baraat, Pheras…',   done: (eventCount ?? 0) > 0,    href: `/weddings/${weddingId}/events`,   icon: CalendarDays },
+    { key: 'guests',   label: 'Add guests',           desc: 'Import or add guests one by one', done: (guestTotal ?? 0) > 0,    href: `/weddings/${weddingId}/guests`,   icon: Users },
+    { key: 'checklist',label: 'Set up checklist',     desc: 'Load template or add custom tasks',done: (checklistTotal ?? 0) > 0,href: `/weddings/${weddingId}/checklist`,icon: CheckSquare },
+    { key: 'vendors',  label: 'Add vendors',          desc: 'Photographer, caterer, decorator…',done: (vendorCount ?? 0) > 0,  href: `/weddings/${weddingId}/vendors`,  icon: ShoppingBag },
+    { key: 'seating',  label: 'Plan seating',         desc: 'Arrange tables and assign guests', done: (tableCount ?? 0) > 0,   href: `/weddings/${weddingId}/seating`,  icon: Armchair },
   ]
   const setupDone = setupSteps.filter(s => s.done).length
-  const setupPct = Math.round((setupDone / setupSteps.length) * 100)
+  const setupPct  = Math.round((setupDone / setupSteps.length) * 100)
   const showSetup = setupDone < setupSteps.length
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6">
 
       {/* Wedding header */}
       <div>
         <h1 className="text-2xl font-semibold text-stone-900">
-          {wedding?.bride_name} &amp; {wedding?.groom_name}
+          {wedding?.bride_name}{wedding?.groom_name ? ` & ${wedding.groom_name}` : ''}
         </h1>
         <p className="text-stone-400 text-sm mt-0.5">
           {[wedding?.primary_venue, wedding?.primary_city].filter(Boolean).join(', ')}
@@ -96,7 +270,23 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         </p>
       </div>
 
-      {/* URGENT */}
+      {/* ── NEXT ACTION CARD ──────────────────────────────────────────────────── */}
+      <div className={`rounded-2xl border p-4 flex items-start gap-4 ${toneStyle.wrap}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${toneStyle.icon}`}>
+          <NextIcon className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-0.5">What to do next</p>
+          <p className={`text-sm font-semibold ${toneStyle.title}`}>{nextAction.message}</p>
+          {nextAction.sub && <p className={`text-xs mt-0.5 ${toneStyle.sub}`}>{nextAction.sub}</p>}
+        </div>
+        <Link href={nextAction.href}
+          className={`flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${toneStyle.btn}`}>
+          {nextAction.cta} →
+        </Link>
+      </div>
+
+      {/* ── URGENT ────────────────────────────────────────────────────────────── */}
       {hasUrgent && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2.5">
           <div className="flex items-center gap-2 mb-1">
@@ -127,7 +317,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         </div>
       )}
 
-      {/* DUE SOON */}
+      {/* ── DUE SOON ──────────────────────────────────────────────────────────── */}
       {hasSoon && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2.5">
           <div className="flex items-center gap-2 mb-1">
@@ -155,7 +345,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         </div>
       )}
 
-      {/* Stats grid */}
+      {/* ── STATS GRID ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Link href={`/weddings/${weddingId}/events`}
           className="bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 transition-colors">
@@ -198,7 +388,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         </Link>
       </div>
 
-      {/* Setup Progress */}
+      {/* ── SETUP PROGRESS ────────────────────────────────────────────────────── */}
       {showSetup && (
         <div className="bg-white border border-stone-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
@@ -234,14 +424,47 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         </div>
       )}
 
-      {/* Client portal panel */}
+      {/* ── UNBOOKED VENDOR SLOTS ────────────────────────────────────────────── */}
+      {(unbookedVendors ?? []).length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-stone-800 flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-amber-500" />
+                Vendor slots waiting to be filled
+              </h2>
+              <p className="text-xs text-stone-400 mt-0.5">Added when you set up ceremonies — these need real vendors</p>
+            </div>
+            <Link href={`/weddings/${weddingId}/vendors`} className="text-xs text-rose-600 hover:text-rose-800 font-medium">
+              Fill all →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {(unbookedVendors ?? []).slice(0, 4).map((v: { id: string; name: string; category: string }) => (
+              <div key={v.id} className="flex items-center gap-3 py-2 border-b border-stone-100 last:border-0">
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">{v.category}</span>
+                <span className="text-sm text-stone-700 flex-1">{v.name}</span>
+                <Link href={`/weddings/${weddingId}/vendors`}
+                  className="text-xs text-rose-600 hover:text-rose-800 font-medium flex items-center gap-1">
+                  <Phone className="w-3 h-3" /> Add details
+                </Link>
+              </div>
+            ))}
+            {(unbookedVendors ?? []).length > 4 && (
+              <p className="text-xs text-stone-400 pt-1">+{(unbookedVendors ?? []).length - 4} more on vendors page</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── CLIENT PORTAL PANEL ───────────────────────────────────────────────── */}
       <InviteClientPanel
         weddingId={weddingId}
         requirements={clientRequirements ?? []}
         existingInvites={clientInvites ?? []}
       />
 
-      {/* Upcoming events */}
+      {/* ── UPCOMING EVENTS ───────────────────────────────────────────────────── */}
       {(upcomingEvents ?? []).length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -268,18 +491,18 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         </div>
       )}
 
-      {/* Quick links when nothing urgent */}
+      {/* ── QUICK LINKS ───────────────────────────────────────────────────────── */}
       {!hasUrgent && !hasSoon && (
         <div>
           <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">Quick access</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              { label: 'Add guests', href: `/weddings/${weddingId}/guests`, icon: Users },
-              { label: 'Checklist', href: `/weddings/${weddingId}/checklist`, icon: CheckSquare },
-              { label: 'Vendors', href: `/weddings/${weddingId}/vendors`, icon: ShoppingBag },
-              { label: 'Budget', href: `/weddings/${weddingId}/budget`, icon: IndianRupee },
-              { label: 'Events', href: `/weddings/${weddingId}/events`, icon: CalendarDays },
-              { label: 'Rooms', href: `/weddings/${weddingId}/rooms`, icon: CheckCircle2 },
+              { label: 'Add guests',  href: `/weddings/${weddingId}/guests`,   icon: Users },
+              { label: 'Checklist',   href: `/weddings/${weddingId}/checklist`,icon: CheckSquare },
+              { label: 'Vendors',     href: `/weddings/${weddingId}/vendors`,  icon: ShoppingBag },
+              { label: 'Budget',      href: `/weddings/${weddingId}/budget`,   icon: IndianRupee },
+              { label: 'Events',      href: `/weddings/${weddingId}/events`,   icon: CalendarDays },
+              { label: 'Day-of view', href: `/weddings/${weddingId}/day`,      icon: Sparkles },
             ].map(({ label, href, icon: Icon }) => (
               <Link key={href} href={href}
                 className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-stone-200 rounded-lg text-sm text-stone-600 hover:border-stone-300 hover:text-stone-900 transition-colors">

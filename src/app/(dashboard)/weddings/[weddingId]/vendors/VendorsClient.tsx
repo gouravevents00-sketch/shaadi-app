@@ -82,6 +82,15 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
   const totalPaid = vendors.reduce((s, v) => s + Number(v.paid_amount), 0)
   const totalPending = totalBudget - totalPaid
 
+  // Unbooked slots: auto-created placeholders with no contact info and no amount set
+  const unbookedSlots = vendors.filter(v =>
+    v.status === 'enquired' &&
+    Number(v.total_amount) === 0 &&
+    v.phone === null &&
+    v.contact_name === null &&
+    v.email === null
+  )
+
   // Upcoming payments (unpaid, due in future)
   const today = new Date().toISOString().split('T')[0]
   const upcoming = payments
@@ -225,6 +234,40 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                 </span>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Needs Booking — ceremony auto-created slots with no details */}
+      {unbookedSlots.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-amber-400 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">
+                {unbookedSlots.length}
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Unfilled vendor slots from ceremonies</p>
+                <p className="text-xs text-amber-700">These were added when you set up your ceremonies — add real vendor details to confirm them.</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {unbookedSlots.map(v => (
+              <button
+                key={v.id}
+                onClick={() => {
+                  setFilterStatus('all'); setFilterCat('all')
+                  setExpanded(s => { const n = new Set(s); n.add(v.id); return n })
+                  setTimeout(() => document.getElementById(`vendor-${v.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
+                }}
+                className="flex items-center gap-1.5 bg-white border border-amber-300 text-amber-800 text-xs px-3 py-1.5 rounded-full hover:bg-amber-100 transition-colors font-medium"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                {v.name} <span className="text-amber-500">· {v.category}</span>
+                <span className="ml-1 text-amber-600">Fill in →</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -424,7 +467,7 @@ function VendorRow({ vendor, weddingId, payments, expanded, onToggle, onCycleSta
   const remaining = Number(vendor.total_amount) - Number(vendor.paid_amount)
 
   return (
-    <div className={`bg-white border rounded-xl overflow-hidden transition-shadow ${expanded ? 'shadow-md border-stone-300' : 'border-stone-200 hover:border-stone-300'}`}>
+    <div id={`vendor-${vendor.id}`} className={`bg-white border rounded-xl overflow-hidden transition-shadow ${expanded ? 'shadow-md border-stone-300' : 'border-stone-200 hover:border-stone-300'}`}>
       {/* Row header */}
       <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={onToggle}>
         {expanded ? <ChevronDown className="w-4 h-4 text-stone-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-stone-400 flex-shrink-0" />}

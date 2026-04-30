@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, Circle, CircleDot, Phone, Users, MapPin, Clock, Star, AlertCircle, CalendarDays, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Phone, Users, MapPin, Clock, Star, AlertCircle, CalendarDays, ChevronRight, Copy, Check } from 'lucide-react'
 import { updateItem } from '../checklist/actions'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -58,6 +58,7 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
   guestEvents: GuestEvent[]
 }) {
   const [items, setItems] = useState<CheckItem[]>(checklistItems)
+  const [copied, setCopied] = useState(false)
   const todayDate = new Date(today + 'T00:00:00')
   const isWeddingDay = wedding.wedding_date === today
 
@@ -82,6 +83,19 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
 
   const pickupGuests = guests.filter(g => g.needs_pickup)
 
+  function copyCallSheet() {
+    const lines = [
+      `📋 VENDOR CALL SHEET`,
+      `${wedding.bride_name}${wedding.groom_name ? ` & ${wedding.groom_name}` : ''} · ${todayDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+      ``,
+      ...vendors.map(v => `${v.category.toUpperCase()}\n${v.name}${v.phone ? `\n📞 ${v.phone}` : '\n⚠️ No phone on file'}`),
+    ]
+    navigator.clipboard.writeText(lines.join('\n'))
+    setCopied(true)
+    toast.success('Call sheet copied!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -92,7 +106,7 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
           </h1>
         </div>
         <p className="text-stone-500 text-sm">
-          {wedding.bride_name} & {wedding.groom_name} ·{' '}
+          {wedding.bride_name}{wedding.groom_name ? ` & ${wedding.groom_name}` : ''} ·{' '}
           {todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           {wedding.primary_city ? ` · ${wedding.primary_city}` : ''}
         </p>
@@ -212,59 +226,82 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {/* Vendor contacts for today */}
-        {vendors.length > 0 && (
-          <div>
-            <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">
-              Vendor Contacts
+      {/* ── CALL SHEET ──────────────────────────────────────────────────────── */}
+      {vendors.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5" /> Vendor Call Sheet ({vendors.length})
             </h2>
-            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-              {vendors.map((v, i) => (
-                <div key={v.id} className={`flex items-center gap-3 px-4 py-3 ${i < vendors.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                  <div className="flex-1 min-w-0">
+            <button
+              onClick={copyCallSheet}
+              className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-rose-700 transition-colors font-medium"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied!' : 'Copy for WhatsApp'}
+            </button>
+          </div>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {vendors.map((v, i) => (
+              <div key={v.id} className={`flex items-center gap-3 px-4 py-3 ${i < vendors.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-stone-900 truncate">{v.name}</p>
-                    <p className="text-xs text-stone-400">{v.category}</p>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                      v.status === 'confirmed' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}>{v.status}</span>
                   </div>
-                  {v.phone ? (
-                    <a href={`tel:${v.phone}`} className="flex items-center gap-1.5 text-xs text-rose-700 font-medium hover:text-rose-800">
-                      <Phone className="w-3.5 h-3.5" /> {v.phone}
-                    </a>
-                  ) : (
-                    <span className="text-xs text-stone-300">No phone</span>
-                  )}
+                  <p className="text-xs text-stone-400">{v.category}</p>
                 </div>
-              ))}
-            </div>
+                {v.phone ? (
+                  <a href={`tel:${v.phone}`}
+                    className="flex items-center gap-1.5 text-sm text-rose-700 font-medium hover:text-rose-800 transition-colors flex-shrink-0">
+                    <Phone className="w-3.5 h-3.5" /> {v.phone}
+                  </a>
+                ) : (
+                  <Link href={`/weddings/${weddingId}/vendors`}
+                    className="text-xs text-amber-600 hover:text-amber-800 flex-shrink-0">
+                    ⚠ Add phone
+                  </Link>
+                )}
+              </div>
+            ))}
           </div>
-        )}
+          {vendors.some(v => !v.phone) && (
+            <p className="text-xs text-stone-400 mt-2 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {vendors.filter(v => !v.phone).length} vendor{vendors.filter(v => !v.phone).length > 1 ? 's' : ''} missing phone —
+              <Link href={`/weddings/${weddingId}/vendors`} className="underline hover:text-stone-600">add now</Link>
+            </p>
+          )}
+        </div>
+      )}
 
-        {/* Pickup guests */}
-        {pickupGuests.length > 0 && (
-          <div>
-            <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">
-              Needs Pickup ({pickupGuests.length})
-            </h2>
-            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-              {pickupGuests.map((g, i) => (
-                <div key={g.id} className={`flex items-center gap-3 px-4 py-3 ${i < pickupGuests.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-stone-900 truncate">{g.name}</p>
-                    {g.rsvp_submitted_at && <p className="text-xs text-green-600">RSVP'd</p>}
-                  </div>
-                  {g.phone ? (
-                    <a href={`tel:${g.phone}`} className="flex items-center gap-1.5 text-xs text-rose-700 font-medium hover:text-rose-800">
-                      <Phone className="w-3.5 h-3.5" /> {g.phone}
-                    </a>
-                  ) : (
-                    <span className="text-xs text-stone-300">No phone</span>
-                  )}
+      {/* ── PICKUP GUESTS ────────────────────────────────────────────────────── */}
+      {pickupGuests.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">
+            Needs Pickup ({pickupGuests.length})
+          </h2>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {pickupGuests.map((g, i) => (
+              <div key={g.id} className={`flex items-center gap-3 px-4 py-3 ${i < pickupGuests.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-stone-900 truncate">{g.name}</p>
+                  {g.rsvp_submitted_at && <p className="text-xs text-green-600">RSVP confirmed</p>}
                 </div>
-              ))}
-            </div>
+                {g.phone ? (
+                  <a href={`tel:${g.phone}`} className="flex items-center gap-1.5 text-sm text-rose-700 font-medium hover:text-rose-800 transition-colors">
+                    <Phone className="w-3.5 h-3.5" /> {g.phone}
+                  </a>
+                ) : (
+                  <span className="text-xs text-stone-300">No phone</span>
+                )}
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Quick links */}
       <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100">

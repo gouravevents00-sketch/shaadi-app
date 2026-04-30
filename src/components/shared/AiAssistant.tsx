@@ -11,9 +11,9 @@ interface Message {
 
 type EntityType = 'wedding' | 'org_event'
 
-const SUGGESTIONS: Record<EntityType, string[]> = {
+const FALLBACK_SUGGESTIONS: Record<EntityType, string[]> = {
   wedding: [
-    'Kya status hai aaj ka?',
+    'Aaj ka status kya hai?',
     'RSVP pending kaun hain?',
     'Koi overdue payments hain?',
     'Checklist mein kya baaki hai?',
@@ -72,10 +72,12 @@ export default function AiAssistant() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasGreeted = useRef(false)
   const lastEntityId = useRef<string | null>(null)
+  const hasFetchedSuggestions = useRef(false)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -88,15 +90,26 @@ export default function AiAssistant() {
     if (lastEntityId.current && lastEntityId.current !== entity.entityId) {
       setMessages([])
       hasGreeted.current = false
+      hasFetchedSuggestions.current = false
       setStreamingText('')
+      setSuggestions([])
     }
     lastEntityId.current = entity.entityId
 
-    if (open && !hasGreeted.current && messages.length === 0) {
-      hasGreeted.current = true
-      sendMessage(GREET[entity.entityType], true)
+    if (open) {
+      if (!hasGreeted.current && messages.length === 0) {
+        hasGreeted.current = true
+        sendMessage(GREET[entity.entityType], true)
+      }
+      if (!hasFetchedSuggestions.current) {
+        hasFetchedSuggestions.current = true
+        fetch(`/api/ai/suggestions?entityId=${entity.entityId}&entityType=${entity.entityType}`)
+          .then(r => r.json())
+          .then(d => { if (d.suggestions?.length) setSuggestions(d.suggestions) })
+          .catch(() => setSuggestions(FALLBACK_SUGGESTIONS[entity.entityType]))
+      }
+      setTimeout(() => inputRef.current?.focus(), 100)
     }
-    if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open, entity?.entityId])
 
   if (!entity) return null
@@ -153,7 +166,7 @@ export default function AiAssistant() {
     sendMessage(text)
   }
 
-  const suggestions = SUGGESTIONS[entity.entityType]
+  const activeSuggestions = suggestions.length > 0 ? suggestions : FALLBACK_SUGGESTIONS[entity.entityType]
 
   return (
     <>
@@ -221,7 +234,7 @@ export default function AiAssistant() {
           {/* Quick suggestions */}
           {messages.length <= 1 && !loading && (
             <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto flex-shrink-0">
-              {suggestions.map(s => (
+              {activeSuggestions.map(s => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}

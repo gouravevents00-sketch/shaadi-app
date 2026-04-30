@@ -21,7 +21,7 @@ export default async function RsvpPage({ params }: { params: Promise<{ token: st
     .single()
 
   const weddingTitle = wedding
-    ? `${wedding.bride_name} & ${wedding.groom_name}`
+    ? wedding.groom_name ? `${wedding.bride_name} & ${wedding.groom_name}` : wedding.bride_name
     : 'Wedding'
 
   const weddingVenue = wedding?.primary_venue

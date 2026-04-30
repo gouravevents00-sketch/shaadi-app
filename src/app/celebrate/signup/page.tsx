@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
+import { createCelebrationUser } from './action'
 
 function SignupForm() {
   const router = useRouter()
@@ -27,14 +28,12 @@ function SignupForm() {
     e.preventDefault()
     if (!name.trim()) { toast.error('Enter your name'); return }
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) { toast.error(error.message); setLoading(false); return }
-    if (data.user) {
-      await supabase.from('users').upsert({ id: data.user.id, email, name: name.trim() })
-    }
+    // Use server action — admin API auto-confirms email, no confirmation needed
+    const res = await createCelebrationUser({ name, email, password })
+    if ('error' in res) { toast.error(res.error); setLoading(false); return }
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
     if (signInErr) {
-      toast.success('Account created! Please sign in.')
+      toast.error('Account created but sign-in failed: ' + signInErr.message)
       setMode('signin')
     } else {
       toast.success('Welcome! Account created.')
