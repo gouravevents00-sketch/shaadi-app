@@ -100,7 +100,6 @@ export async function upgradeToPro(celebrationId: string) {
     wedding_date: (celebration.event_date as string | null) ?? null,
     primary_venue: cel.venue ?? null,
     primary_city: cel.city ?? null,
-    expected_guests: celebration.guest_count ?? null,
   }).select('id').single()
   if (weddingErr || !wedding) return { error: weddingErr?.message ?? 'Could not create event record' }
 
