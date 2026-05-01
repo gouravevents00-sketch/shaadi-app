@@ -66,8 +66,15 @@ const VENDOR_CATEGORIES = [
 ]
 
 const COORDINATOR_ROLES = [
-  { value: 'coordinator', label: 'Coordinator' },
-  { value: 'admin',       label: 'Admin'       },
+  { value: 'coordinator',  label: 'Coordinator'       },
+  { value: 'admin',        label: 'Admin'             },
+  { value: 'hospitality',  label: 'Hospitality Team'  },
+  { value: 'logistics',    label: 'Logistics Team'    },
+  { value: 'fb_team',      label: 'F&B Team'          },
+  { value: 'decor_team',   label: 'Decor Team'        },
+  { value: 'photography',  label: 'Photography'       },
+  { value: 'bride_family', label: "Bride's Family"    },
+  { value: 'groom_family', label: "Groom's Family"    },
 ]
 
 const TYPE_COLORS: Record<string, string> = {
