@@ -22,22 +22,54 @@ const STATUS_COLORS: Record<string, string> = {
   archived: 'bg-stone-100 text-stone-400',
 }
 
-const QUICK_LINKS = (id: string) => [
-  { href: `/org-events/${id}/live`,          label: 'Live Dashboard', icon: Zap,         desc: 'Real-time event day view' },
-  { href: `/org-events/${id}/agenda`,        label: 'Agenda',         icon: CalendarDays, desc: 'Sessions & schedule' },
-  { href: `/org-events/${id}/delegates`,     label: 'Delegates',      icon: Users,        desc: 'Attendee management' },
-  { href: `/org-events/${id}/speakers`,      label: 'Speakers',       icon: Mic,          desc: 'Speaker profiles' },
-  { href: `/org-events/${id}/guests`,        label: 'Guests & VIPs',  icon: UserCheck,    desc: 'VIP & guest list' },
-  { href: `/org-events/${id}/artists`,       label: 'Artists',        icon: Music,        desc: 'Performers & entertainment' },
-  { href: `/org-events/${id}/volunteers`,    label: 'Volunteers',     icon: Handshake,    desc: 'Ground team management' },
-  { href: `/org-events/${id}/vendors`,       label: 'Vendors',        icon: ShoppingBag,  desc: 'Supplier payments' },
-  { href: `/org-events/${id}/accommodation`, label: 'Accommodation',  icon: BedDouble,    desc: 'Room allocations' },
-  { href: `/org-events/${id}/sponsors`,      label: 'Sponsors',       icon: Trophy,       desc: 'Sponsor tracking' },
-  { href: `/org-events/${id}/checklist`,     label: 'Checklist',      icon: ListChecks,   desc: 'Task tracking' },
-  { href: `/org-events/${id}/budget`,        label: 'Budget',         icon: Wallet,       desc: 'Expense management' },
-  { href: `/org-events/${id}/reports`,       label: 'Reports',        icon: BarChart2,    desc: 'Attendance & summary' },
-  { href: `/org-events/${id}/comms`,         label: 'Comms',          icon: MessageSquare, desc: 'Message delegates & guests' },
+const ALL_QUICK_LINKS = (id: string) => [
+  { key: 'live',          href: `/org-events/${id}/live`,          label: 'Live Dashboard', icon: Zap,           desc: 'Real-time event day view'      },
+  { key: 'agenda',        href: `/org-events/${id}/agenda`,        label: 'Agenda',         icon: CalendarDays,  desc: 'Sessions & schedule'           },
+  { key: 'delegates',     href: `/org-events/${id}/delegates`,     label: 'Delegates',      icon: Users,         desc: 'Attendee management'           },
+  { key: 'speakers',      href: `/org-events/${id}/speakers`,      label: 'Speakers',       icon: Mic,           desc: 'Speaker profiles'              },
+  { key: 'guests',        href: `/org-events/${id}/guests`,        label: 'Guests & VIPs',  icon: UserCheck,     desc: 'VIP & guest list'              },
+  { key: 'artists',       href: `/org-events/${id}/artists`,       label: 'Artists',        icon: Music,         desc: 'Performers & entertainment'    },
+  { key: 'volunteers',    href: `/org-events/${id}/volunteers`,    label: 'Volunteers',     icon: Handshake,     desc: 'Ground team management'        },
+  { key: 'vendors',       href: `/org-events/${id}/vendors`,       label: 'Vendors',        icon: ShoppingBag,   desc: 'Supplier payments'             },
+  { key: 'accommodation', href: `/org-events/${id}/accommodation`, label: 'Accommodation',  icon: BedDouble,     desc: 'Room allocations'              },
+  { key: 'sponsors',      href: `/org-events/${id}/sponsors`,      label: 'Sponsors',       icon: Trophy,        desc: 'Sponsor tracking'              },
+  { key: 'checklist',     href: `/org-events/${id}/checklist`,     label: 'Checklist',      icon: ListChecks,    desc: 'Task tracking'                 },
+  { key: 'budget',        href: `/org-events/${id}/budget`,        label: 'Budget',         icon: Wallet,        desc: 'Expense management'            },
+  { key: 'reports',       href: `/org-events/${id}/reports`,       label: 'Reports',        icon: BarChart2,     desc: 'Attendance & summary'          },
+  { key: 'comms',         href: `/org-events/${id}/comms`,         label: 'Comms',          icon: MessageSquare, desc: 'Message delegates & guests'    },
 ]
+
+const SUB_TYPE_KEYS: Record<string, string[]> = {
+  conference:        ['live','agenda','speakers','delegates','guests','accommodation','sponsors','vendors','checklist','budget','reports','comms'],
+  award_ceremony:    ['live','agenda','guests','sponsors','vendors','checklist','budget','reports','comms'],
+  product_launch:    ['live','agenda','guests','vendors','checklist','budget','reports','comms'],
+  corporate_dinner:  ['live','agenda','guests','accommodation','vendors','checklist','budget','reports','comms'],
+  agm:               ['live','agenda','delegates','vendors','checklist','budget','reports','comms'],
+  team_building:     ['live','accommodation','volunteers','vendors','checklist','budget','reports','comms'],
+  trade_fair:        ['live','agenda','delegates','guests','sponsors','vendors','checklist','budget','reports','comms'],
+  state_function:    ['live','agenda','guests','accommodation','vendors','checklist','budget','reports','comms'],
+  inauguration:      ['live','agenda','guests','vendors','checklist','budget','reports','comms'],
+  republic_day:      ['live','agenda','guests','volunteers','vendors','checklist','budget','reports','comms'],
+  felicitation:      ['live','agenda','guests','vendors','checklist','budget','reports','comms'],
+  public_address:    ['live','agenda','guests','volunteers','vendors','checklist','budget','reports','comms'],
+  concert:           ['live','agenda','artists','guests','volunteers','accommodation','sponsors','vendors','checklist','budget','reports','comms'],
+  festival:          ['live','agenda','artists','guests','volunteers','sponsors','vendors','checklist','budget','reports','comms'],
+  sports:            ['live','agenda','guests','volunteers','vendors','checklist','budget','reports','comms'],
+  fundraiser:        ['live','agenda','guests','sponsors','vendors','checklist','budget','reports','comms'],
+  brand_activation:  ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  sampling_campaign: ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  roadshow:          ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  mall_activation:   ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  rwa_activation:    ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  kiosk_campaign:    ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  van_campaign:      ['live','volunteers','vendors','checklist','budget','reports','comms'],
+  ipl_activation:    ['live','artists','guests','volunteers','vendors','checklist','budget','reports','comms'],
+}
+
+function getQuickLinks(id: string, subType: string | null) {
+  const keys = SUB_TYPE_KEYS[subType ?? ''] ?? ALL_QUICK_LINKS(id).map(l => l.key)
+  return ALL_QUICK_LINKS(id).filter(l => keys.includes(l.key))
+}
 
 export default async function OrgEventOverviewPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params
@@ -149,7 +181,7 @@ export default async function OrgEventOverviewPage({ params }: { params: Promise
       <div>
         <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3">Manage</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {QUICK_LINKS(eventId).map(({ href, label, icon: Icon, desc }) => (
+          {getQuickLinks(eventId, event.sub_type ?? null).map(({ href, label, icon: Icon, desc }) => (
             <Link key={label} href={href}>
               <Card className="border-stone-200 hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-4 flex items-center gap-3">

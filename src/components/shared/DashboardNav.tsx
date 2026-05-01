@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
@@ -51,24 +52,59 @@ const agencyWeddingNav = (id: string) => [
   { href: `/weddings/${id}/client`,       label: 'Client Portal', icon: UserCircle },
 ]
 
-const orgEventNav = (id: string) => [
-  { href: `/org-events/${id}/live`,           label: 'Live Dashboard', icon: Zap },
-  { href: `/org-events/${id}/overview`,       label: 'Overview',       icon: LayoutDashboard },
-  { href: `/org-events/${id}/agenda`,         label: 'Agenda',         icon: CalendarDays },
-  { href: `/org-events/${id}/speakers`,       label: 'Speakers',       icon: Mic },
-  { href: `/org-events/${id}/delegates`,      label: 'Delegates',      icon: Users },
-  { href: `/org-events/${id}/guests`,         label: 'Guests & VIPs',  icon: UserCheck },
-  { href: `/org-events/${id}/artists`,        label: 'Artists',        icon: Music },
-  { href: `/org-events/${id}/volunteers`,     label: 'Volunteers',     icon: Handshake },
-  { href: `/org-events/${id}/vendors`,        label: 'Vendors',        icon: ShoppingBag },
-  { href: `/org-events/${id}/accommodation`,  label: 'Accommodation',  icon: BedDouble },
-  { href: `/org-events/${id}/sponsors`,       label: 'Sponsors',       icon: Trophy },
-  { href: `/org-events/${id}/timeline`,       label: 'Run of Show',    icon: Clock },
-  { href: `/org-events/${id}/checklist`,      label: 'Checklist',      icon: ListChecks },
-  { href: `/org-events/${id}/budget`,         label: 'Budget',         icon: Wallet },
-  { href: `/org-events/${id}/reports`,        label: 'Reports',        icon: BarChart2 },
-  { href: `/org-events/${id}/comms`,          label: 'Comms',          icon: MessageSquare },
+// All possible org-event nav items keyed by slug
+const ORG_NAV_ALL = (id: string) => [
+  { key: 'live',          href: `/org-events/${id}/live`,          label: 'Live Dashboard', icon: Zap          },
+  { key: 'overview',      href: `/org-events/${id}/overview`,      label: 'Overview',       icon: LayoutDashboard },
+  { key: 'agenda',        href: `/org-events/${id}/agenda`,        label: 'Agenda',         icon: CalendarDays },
+  { key: 'speakers',      href: `/org-events/${id}/speakers`,      label: 'Speakers',       icon: Mic          },
+  { key: 'delegates',     href: `/org-events/${id}/delegates`,     label: 'Delegates',      icon: Users        },
+  { key: 'guests',        href: `/org-events/${id}/guests`,        label: 'Guests & VIPs',  icon: UserCheck    },
+  { key: 'artists',       href: `/org-events/${id}/artists`,       label: 'Artists',        icon: Music        },
+  { key: 'volunteers',    href: `/org-events/${id}/volunteers`,    label: 'Volunteers',     icon: Handshake    },
+  { key: 'vendors',       href: `/org-events/${id}/vendors`,       label: 'Vendors',        icon: ShoppingBag  },
+  { key: 'accommodation', href: `/org-events/${id}/accommodation`, label: 'Accommodation',  icon: BedDouble    },
+  { key: 'sponsors',      href: `/org-events/${id}/sponsors`,      label: 'Sponsors',       icon: Trophy       },
+  { key: 'timeline',      href: `/org-events/${id}/timeline`,      label: 'Run of Show',    icon: Clock        },
+  { key: 'checklist',     href: `/org-events/${id}/checklist`,     label: 'Checklist',      icon: ListChecks   },
+  { key: 'budget',        href: `/org-events/${id}/budget`,        label: 'Budget',         icon: Wallet       },
+  { key: 'reports',       href: `/org-events/${id}/reports`,       label: 'Reports',        icon: BarChart2    },
+  { key: 'comms',         href: `/org-events/${id}/comms`,         label: 'Comms',          icon: MessageSquare},
 ]
+
+// Modules shown per sub_type (always includes: live, overview, vendors, budget, checklist, reports, comms)
+const ORG_NAV_KEYS: Record<string, string[]> = {
+  conference:        ['live','overview','agenda','speakers','delegates','guests','accommodation','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  award_ceremony:    ['live','overview','agenda','guests','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  product_launch:    ['live','overview','agenda','guests','timeline','vendors','budget','checklist','reports','comms'],
+  corporate_dinner:  ['live','overview','agenda','guests','accommodation','timeline','vendors','budget','checklist','reports','comms'],
+  agm:               ['live','overview','agenda','delegates','timeline','vendors','budget','checklist','reports','comms'],
+  team_building:     ['live','overview','accommodation','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  trade_fair:        ['live','overview','agenda','delegates','guests','sponsors','vendors','budget','checklist','reports','comms'],
+  state_function:    ['live','overview','agenda','guests','accommodation','timeline','vendors','budget','checklist','reports','comms'],
+  inauguration:      ['live','overview','agenda','guests','timeline','vendors','budget','checklist','reports','comms'],
+  republic_day:      ['live','overview','agenda','guests','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  felicitation:      ['live','overview','agenda','guests','timeline','vendors','budget','checklist','reports','comms'],
+  public_address:    ['live','overview','agenda','guests','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  concert:           ['live','overview','agenda','artists','guests','volunteers','accommodation','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  festival:          ['live','overview','agenda','artists','guests','volunteers','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  sports:            ['live','overview','agenda','guests','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  fundraiser:        ['live','overview','agenda','guests','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  brand_activation:  ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  sampling_campaign: ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  roadshow:          ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  mall_activation:   ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  rwa_activation:    ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  kiosk_campaign:    ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  van_campaign:      ['live','overview','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  ipl_activation:    ['live','overview','artists','guests','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  _default:          ['live','overview','agenda','guests','volunteers','vendors','accommodation','sponsors','timeline','budget','checklist','reports','comms'],
+}
+
+function orgEventNav(id: string, subType: string | null) {
+  const keys = ORG_NAV_KEYS[subType ?? ''] ?? ORG_NAV_KEYS['_default']
+  return ORG_NAV_ALL(id).filter(item => keys.includes(item.key))
+}
 
 // ── Self-planner nav ─────────────────────────────────────────
 const selfPlannerNav = (id: string) => [
@@ -114,6 +150,13 @@ export default function DashboardNav({ user, company, role, isPersonal, personal
 
   const orgEventMatch = pathname.match(/\/org-events\/([^/]+)/)
   const orgEventId = orgEventMatch?.[1]
+
+  const [orgEventSubType, setOrgEventSubType] = useState<string | null>(null)
+  useEffect(() => {
+    if (!orgEventId) { setOrgEventSubType(null); return }
+    supabase.from('org_events').select('sub_type').eq('id', orgEventId).single()
+      .then(({ data }) => setOrgEventSubType(data?.sub_type ?? null))
+  }, [orgEventId])
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -232,7 +275,7 @@ export default function DashboardNav({ user, company, role, isPersonal, personal
             <div className="pt-4 pb-1 px-3">
               <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">This Event</p>
             </div>
-            {orgEventNav(orgEventId).map(item => <NavItem key={item.href} {...item} onClick={onNavigate} />)}
+            {orgEventNav(orgEventId, orgEventSubType).map(({ key: _k, ...item }) => <NavItem key={item.href} {...item} onClick={onNavigate} />)}
           </>
         )}
       </nav>

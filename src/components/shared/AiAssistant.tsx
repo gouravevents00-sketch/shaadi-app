@@ -11,7 +11,7 @@ interface Message {
 
 type EntityType = 'wedding' | 'org_event'
 
-const FALLBACK_SUGGESTIONS: Record<EntityType, string[]> = {
+const FALLBACK_SUGGESTIONS: Record<string, string[]> = {
   wedding: [
     'Aaj ka status kya hai?',
     'RSVP pending kaun hain?',
@@ -21,16 +21,73 @@ const FALLBACK_SUGGESTIONS: Record<EntityType, string[]> = {
   ],
   org_event: [
     'Event ka overall status kya hai?',
-    'Speakers confirmed hain?',
     'Koi overdue payments hain?',
     'Checklist mein kya pending hai?',
-    'Volunteers ready hain?',
+  ],
+  conference: [
+    'Kitne speakers confirmed hain?',
+    'Delegate registrations ka status?',
+    'Koi overdue payments hain?',
+    'Checklist mein kya pending hai?',
+    'Sponsors confirmed hain?',
+  ],
+  award_ceremony: [
+    'VIP guests ka status kya hai?',
+    'Run of show ready hai?',
+    'Koi overdue payments hain?',
+    'Checklist mein kya pending hai?',
+  ],
+  concert: [
+    'Artists ka confirmation status?',
+    'Volunteers briefed hain?',
+    'Sound & AV vendors confirmed?',
+    'Checklist mein kya pending hai?',
+    'Koi overdue payments hain?',
+  ],
+  festival: [
+    'Kitne artists confirmed hain?',
+    'Volunteer assignments complete hain?',
+    'Vendors ka status kya hai?',
+    'Checklist mein kya pending hai?',
+  ],
+  brand_activation: [
+    'Promoters ready hain?',
+    'Sampling inventory confirm hua?',
+    'Checklist mein kya pending hai?',
+    'Koi overdue payments hain?',
+  ],
+  sampling_campaign: [
+    'Promoters ready hain?',
+    'Inventory dispatch hua?',
+    'Checklist mein kya pending hai?',
+  ],
+  roadshow: [
+    'Vehicles confirmed hain?',
+    'City-wise schedule ready hai?',
+    'Promoters briefed hain?',
+    'Checklist mein kya pending hai?',
+  ],
+  state_function: [
+    'VIP protocol list ready hai?',
+    'Accommodation confirmed hai?',
+    'Checklist mein kya pending hai?',
+    'Koi overdue payments hain?',
+  ],
+  sports: [
+    'Volunteers assigned hain?',
+    'Timing & registration ready?',
+    'Medical team confirmed?',
+    'Checklist mein kya pending hai?',
   ],
 }
 
-const GREET: Record<EntityType, string> = {
-  wedding: 'Give me a quick status summary of this wedding — what needs attention right now?',
-  org_event: 'Give me a quick status summary of this event — what needs attention right now?',
+const GREET: Record<string, string> = {
+  wedding:    'Give me a quick status summary of this wedding — what needs attention right now?',
+  org_event:  'Give me a quick status summary of this event — what needs attention right now?',
+  conference: 'Give me a quick status of this conference — speakers, delegates, sponsors status kya hai?',
+  concert:    'Give me a quick status of this concert — artists, volunteers, AV vendors ka kya haal hai?',
+  festival:   'Give me a quick status of this festival — artists, volunteers, key pending tasks kya hain?',
+  brand_activation: 'Give me a quick status of this activation — promoters, inventory, pending tasks kya hain?',
 }
 
 function detectEntity(pathname: string): { entityId: string; entityType: EntityType } | null {
@@ -41,6 +98,11 @@ function detectEntity(pathname: string): { entityId: string; entityType: EntityT
   if (orgMatch) return { entityId: orgMatch[1], entityType: 'org_event' }
 
   return null
+}
+
+function getSuggestionsKey(entityType: EntityType, subType: string | null): string {
+  if (entityType === 'wedding') return 'wedding'
+  return (subType && FALLBACK_SUGGESTIONS[subType]) ? subType : 'org_event'
 }
 
 function MessageBubble({ msg }: { msg: Message }) {
@@ -73,11 +135,19 @@ export default function AiAssistant() {
   const [loading, setLoading] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [orgSubType, setOrgSubType] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasGreeted = useRef(false)
   const lastEntityId = useRef<string | null>(null)
   const hasFetchedSuggestions = useRef(false)
+
+  // Fetch org event sub_type for personalised suggestions/greet
+  useEffect(() => {
+    if (!entity || entity.entityType !== 'org_event') { setOrgSubType(null); return }
+    fetch(`/api/ai/suggestions?entityId=${entity.entityId}&entityType=org_event&metaOnly=true`)
+      .then(r => r.json()).then(d => setOrgSubType(d.subType ?? null)).catch(() => {})
+  }, [entity?.entityId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -97,20 +167,22 @@ export default function AiAssistant() {
     lastEntityId.current = entity.entityId
 
     if (open) {
+      const sugKey = getSuggestionsKey(entity.entityType, orgSubType)
+      const greetMsg = GREET[orgSubType ?? ''] ?? GREET[entity.entityType]
       if (!hasGreeted.current && messages.length === 0) {
         hasGreeted.current = true
-        sendMessage(GREET[entity.entityType], true)
+        sendMessage(greetMsg, true)
       }
       if (!hasFetchedSuggestions.current) {
         hasFetchedSuggestions.current = true
         fetch(`/api/ai/suggestions?entityId=${entity.entityId}&entityType=${entity.entityType}`)
           .then(r => r.json())
           .then(d => { if (d.suggestions?.length) setSuggestions(d.suggestions) })
-          .catch(() => setSuggestions(FALLBACK_SUGGESTIONS[entity.entityType]))
+          .catch(() => setSuggestions(FALLBACK_SUGGESTIONS[sugKey]))
       }
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [open, entity?.entityId])
+  }, [open, entity?.entityId, orgSubType])
 
   if (!entity) return null
 

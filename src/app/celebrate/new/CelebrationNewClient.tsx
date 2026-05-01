@@ -10,22 +10,22 @@ import { Label } from '@/components/ui/label'
 import { createCelebration } from './actions'
 
 const CELEBRATION_TYPES = [
-  { id: 'wedding', label: 'Shadi / Wedding', emoji: '💒', desc: 'Complete wedding planning' },
-  { id: 'sagai', label: 'Sagai / Engagement', emoji: '💍', desc: 'Ring ceremony & celebration' },
-  { id: 'sangeet', label: 'Sangeet Night', emoji: '🎵', desc: 'Music, dance & performances' },
-  { id: 'namkaran', label: 'Namkaran', emoji: '👶', desc: 'Baby naming ceremony' },
-  { id: 'mundan', label: 'Mundan', emoji: '✂️', desc: 'First haircut ceremony' },
-  { id: 'annaprashan', label: 'Annaprashan', emoji: '🍚', desc: 'First rice feeding ceremony' },
-  { id: 'janeu', label: 'Janeu / Upanayana', emoji: '🧵', desc: 'Sacred thread ceremony' },
-  { id: 'godh_bharai', label: 'Godh Bharai', emoji: '🤰', desc: 'Baby shower ceremony' },
-  { id: 'griha_pravesh', label: 'Griha Pravesh', emoji: '🏠', desc: 'Housewarming puja' },
-  { id: 'puja', label: 'Puja / Havan', emoji: '🪔', desc: 'Religious ceremony or havan' },
-  { id: 'birthday', label: 'Birthday Party', emoji: '🎂', desc: 'Birthday celebration' },
-  { id: 'anniversary', label: 'Anniversary', emoji: '❤️', desc: 'Wedding anniversary' },
-  { id: 'graduation', label: 'Graduation Party', emoji: '🎓', desc: 'Academic milestone' },
-  { id: 'retirement', label: 'Retirement Party', emoji: '🎉', desc: 'Farewell & celebration' },
-  { id: 'kitty', label: 'Kitty Party', emoji: '👗', desc: 'Social gathering' },
-  { id: 'other', label: 'Other Celebration', emoji: '✨', desc: 'Custom event' },
+  { id: 'wedding',      label: 'Shadi / Wedding',       emoji: '💒', desc: 'Complete wedding planning',       soon: false },
+  { id: 'sagai',        label: 'Sagai / Engagement',     emoji: '💍', desc: 'Ring ceremony & celebration',     soon: true  },
+  { id: 'sangeet',      label: 'Sangeet Night',           emoji: '🎵', desc: 'Music, dance & performances',    soon: true  },
+  { id: 'namkaran',     label: 'Namkaran',                emoji: '👶', desc: 'Baby naming ceremony',           soon: true  },
+  { id: 'mundan',       label: 'Mundan',                  emoji: '✂️', desc: 'First haircut ceremony',         soon: true  },
+  { id: 'annaprashan',  label: 'Annaprashan',             emoji: '🍚', desc: 'First rice feeding ceremony',    soon: true  },
+  { id: 'janeu',        label: 'Janeu / Upanayana',       emoji: '🧵', desc: 'Sacred thread ceremony',         soon: true  },
+  { id: 'godh_bharai',  label: 'Godh Bharai',             emoji: '🤰', desc: 'Baby shower ceremony',           soon: true  },
+  { id: 'griha_pravesh',label: 'Griha Pravesh',           emoji: '🏠', desc: 'Housewarming puja',              soon: true  },
+  { id: 'puja',         label: 'Puja / Havan',            emoji: '🪔', desc: 'Religious ceremony or havan',    soon: true  },
+  { id: 'birthday',     label: 'Birthday Party',          emoji: '🎂', desc: 'Birthday celebration',           soon: true  },
+  { id: 'anniversary',  label: 'Anniversary',             emoji: '❤️', desc: 'Wedding anniversary',            soon: true  },
+  { id: 'graduation',   label: 'Graduation Party',        emoji: '🎓', desc: 'Academic milestone',             soon: true  },
+  { id: 'retirement',   label: 'Retirement Party',        emoji: '🎉', desc: 'Farewell & celebration',         soon: true  },
+  { id: 'kitty',        label: 'Kitty Party',             emoji: '👗', desc: 'Social gathering',               soon: true  },
+  { id: 'other',        label: 'Other Celebration',       emoji: '✨', desc: 'Custom event',                   soon: true  },
 ]
 
 type Step = 'type' | 'details'
@@ -105,13 +105,21 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
               {CELEBRATION_TYPES.map(type => (
                 <button
                   key={type.id}
-                  onClick={() => setSelectedType(type.id)}
-                  className={`p-4 rounded-xl border text-left transition-all ${
-                    selectedType === type.id
-                      ? 'border-rose-500 bg-rose-50 shadow-sm'
-                      : 'border-stone-200 bg-white hover:border-stone-300'
+                  onClick={() => !type.soon && setSelectedType(type.id)}
+                  disabled={type.soon}
+                  className={`relative p-4 rounded-xl border text-left transition-all ${
+                    type.soon
+                      ? 'border-stone-100 bg-stone-50 opacity-60 cursor-not-allowed'
+                      : selectedType === type.id
+                        ? 'border-rose-500 bg-rose-50 shadow-sm'
+                        : 'border-stone-200 bg-white hover:border-stone-300'
                   }`}
                 >
+                  {type.soon && (
+                    <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wide bg-stone-200 text-stone-500 px-1.5 py-0.5 rounded-full">
+                      Soon
+                    </span>
+                  )}
                   <div className="text-2xl mb-2">{type.emoji}</div>
                   <p className="text-sm font-semibold text-stone-800">{type.label}</p>
                   <p className="text-xs text-stone-400 mt-0.5">{type.desc}</p>

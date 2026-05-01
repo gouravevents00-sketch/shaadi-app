@@ -16,6 +16,12 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().slice(0, 10)
   const suggestions: string[] = []
 
+  // metaOnly=true → just return sub_type without building suggestions (used by AI assistant to personalise greet)
+  if (searchParams.get('metaOnly') === 'true' && entityType === 'org_event') {
+    const { data: ev } = await sc.from('org_events').select('sub_type').eq('id', entityId).single()
+    return NextResponse.json({ subType: ev?.sub_type ?? null })
+  }
+
   if (entityType === 'wedding') {
     const [
       { data: overdueTasks },
@@ -61,30 +67,47 @@ export async function GET(req: NextRequest) {
       suggestions.push(g)
     }
   } else {
-    const [
-      { data: overdueTasks },
-      { data: speakers },
-      { data: delegates },
-    ] = await Promise.all([
+    const { data: ev } = await sc.from('org_events').select('sub_type').eq('id', entityId).single()
+    const subType = ev?.sub_type ?? ''
+
+    const [{ data: overdueTasks }, { data: speakers }, { data: delegates }, { data: volunteers }] = await Promise.all([
       sc.from('org_checklist_items').select('id').eq('org_event_id', entityId).neq('status', 'done').lt('due_date', today),
       sc.from('speakers').select('id, status').eq('org_event_id', entityId),
       sc.from('delegates').select('id, rsvp_status').eq('org_event_id', entityId),
+      sc.from('volunteers').select('id, status').eq('org_event_id', entityId),
     ])
 
     const overdueCount = (overdueTasks ?? []).length
     const pendingSpeakers = (speakers ?? []).filter((s: { status: string }) => s.status !== 'confirmed').length
     const pendingDelegates = (delegates ?? []).filter((d: { rsvp_status: string | null }) => !d.rsvp_status || d.rsvp_status === 'pending').length
+    const pendingVolunteers = (volunteers ?? []).filter((v: { status: string | null }) => !v.status || v.status === 'pending').length
 
     if (overdueCount > 0) suggestions.push(`⚠ ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''} dikhao`)
-    if (pendingSpeakers > 0) suggestions.push(`Speakers pending confirmation (${pendingSpeakers})`)
-    if (pendingDelegates > 0) suggestions.push(`Delegates RSVP pending (${pendingDelegates})`)
+
+    // Sub-type specific suggestions
+    if (['conference', 'agm', 'trade_fair'].includes(subType)) {
+      if (pendingSpeakers > 0) suggestions.push(`Speakers pending confirmation (${pendingSpeakers})`)
+      if (pendingDelegates > 0) suggestions.push(`Delegates RSVP pending (${pendingDelegates})`)
+    } else if (['concert', 'festival', 'ipl_activation'].includes(subType)) {
+      if (pendingVolunteers > 0) suggestions.push(`Volunteers pending briefing (${pendingVolunteers})`)
+      suggestions.push('Artists confirmation status?')
+    } else if (['brand_activation', 'sampling_campaign', 'roadshow', 'mall_activation', 'rwa_activation', 'kiosk_campaign', 'van_campaign'].includes(subType)) {
+      if (pendingVolunteers > 0) suggestions.push(`Promoters pending (${pendingVolunteers})`)
+      suggestions.push('Inventory aur sampling kit status?')
+    } else if (['state_function', 'inauguration', 'republic_day', 'felicitation'].includes(subType)) {
+      suggestions.push('VIP protocol list ready hai?')
+      if (pendingVolunteers > 0) suggestions.push(`Volunteers pending (${pendingVolunteers})`)
+    } else {
+      if (pendingSpeakers > 0) suggestions.push(`Speakers pending confirmation (${pendingSpeakers})`)
+      if (pendingVolunteers > 0) suggestions.push(`Volunteers pending (${pendingVolunteers})`)
+    }
 
     const generics = [
       'Event ka status kya hai?',
       'Koi overdue payments hain?',
-      'Volunteers ready hain?',
       'Agenda review karo',
-      'Sponsor status batao',
+      'Budget overview batao',
+      'Vendor contacts dikhao',
     ]
     for (const g of generics) {
       if (suggestions.length >= 5) break

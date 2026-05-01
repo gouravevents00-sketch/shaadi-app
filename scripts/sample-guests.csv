@@ -1,0 +1,13 @@
+Name,Phone,Email,Side,VIP,Dietary,Dietary Notes,Notes
+Ramesh Sharma,9876501001,ramesh@example.com,bride,true,veg,,Uncle - Bride's side
+Sunita Sharma,9876501002,sunita@example.com,bride,false,veg,,Aunt - Bride's side
+Vikram Mehta Sr,9876501003,,groom,true,veg,,Father - Groom's side
+Kavita Mehta,9876501004,,groom,false,veg,,Mother - Groom's side
+Raj Kapoor,9876501005,raj@example.com,bride,false,nonveg,,College friend
+Priya Gupta,9876501006,priya@example.com,bride,true,veg,No onion no garlic,Best friend of bride
+Arjun Singh,9876501007,,groom,false,nonveg,,School friend
+Deepa Nair,9876501008,deepa@example.com,bride,false,jain,,Cousin
+Karan Patel,9876501009,,groom,false,veg,,Office colleague
+Meena Joshi,9876501010,meena@example.com,groom,false,veg,,Neighbour
+Suresh Agarwal,9876501011,,bride,false,veg,,Family friend
+Pooja Reddy,9876501012,pooja@example.com,groom,false,nonveg,,Cousin - Groom's side
