@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -360,6 +361,11 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
             </td>
             <td className="px-4 py-3">
               <div className="flex gap-1 justify-end">
+                <Link href={`/weddings/${weddingId}/guests/${guest.id}`}>
+                  <Button size="icon-sm" variant="ghost" title="Guest 360 — view all details">
+                    <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+                  </Button>
+                </Link>
                 <Button size="icon-sm" variant="ghost" title="Copy RSVP link"
                   onClick={() => {
                     navigator.clipboard.writeText(`${window.location.origin}/rsvp/${guest.rsvp_token}`)

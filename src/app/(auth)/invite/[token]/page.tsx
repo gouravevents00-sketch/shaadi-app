@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { createUserForInvite } from './signup-action'
 
 interface InviteInfo {
   email: string
@@ -82,39 +83,38 @@ export default function InvitePage() {
       return
     }
 
-    // Account doesn't exist → try creating it
-    setStatusMsg('Account not found — creating one…')
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: invite.email,
-      password,
-      options: {
-        data: { name: name || invite.email.split('@')[0] },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(dest(invite))}`,
-      },
-    })
+    // Account doesn't exist → create it via server action (auto-confirms email)
+    setStatusMsg('Creating your account…')
+    const createResult = await createUserForInvite(invite.email, password, name)
 
-    if (signUpError) {
-      // Account exists but wrong password
+    if ('error' in createResult) {
       setStatusMsg('')
       setSubmitting(false)
-      if (signUpError.message.toLowerCase().includes('already')) {
+      if (createResult.alreadyExists) {
         toast.error('Wrong password. Please try the correct password.')
       } else {
-        toast.error(signUpError.message)
+        toast.error(createResult.error)
       }
       return
     }
 
-    if (signUpData?.session) {
-      setStatusMsg('Redirecting…')
-      await acceptInvite(signUpData.user!.id)
-      window.location.href = dest(invite)
+    // Account created — now sign in immediately (email is confirmed)
+    setStatusMsg('Signing in…')
+    const { data: newSignIn, error: newSignInError } = await supabase.auth.signInWithPassword({
+      email: invite.email,
+      password,
+    })
+
+    if (newSignInError || !newSignIn.user) {
+      setStatusMsg('')
+      setSubmitting(false)
+      toast.error(newSignInError?.message ?? 'Sign-in failed after account creation')
       return
     }
 
-    // signUp returned no session and no error → email confirmation still required
-    setSubmitting(false)
-    setStatusMsg('✉️ We sent a confirmation email. Confirm it then come back and sign in.')
+    setStatusMsg('Redirecting…')
+    await acceptInvite(newSignIn.user.id)
+    window.location.href = dest(invite)
   }
 
   if (pageLoading) return (

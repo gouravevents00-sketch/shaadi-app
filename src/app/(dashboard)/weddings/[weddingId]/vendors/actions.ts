@@ -104,6 +104,25 @@ export async function deletePayment(weddingId: string, vendorId: string, payment
   return { success: true }
 }
 
+// ─── Vendor ↔ Event tagging ────────────────────────────────────
+
+export async function toggleVendorEvent(weddingId: string, vendorId: string, eventId: string) {
+  const r = await getVerified(weddingId)
+  if ('error' in r) return { error: r.error }
+
+  // Check if already linked
+  const { data: existing } = await r.sc.from('vendor_events')
+    .select('id').eq('vendor_id', vendorId).eq('event_id', eventId).maybeSingle()
+
+  if (existing) {
+    await r.sc.from('vendor_events').delete().eq('id', existing.id)
+    return { removed: true }
+  } else {
+    await r.sc.from('vendor_events').insert({ vendor_id: vendorId, event_id: eventId })
+    return { added: true }
+  }
+}
+
 async function recalcPaid(sc: ReturnType<typeof createServiceClient>, vendorId: string) {
   const { data: pmts } = await sc.from('vendor_payments')
     .select('amount, paid_date').eq('vendor_id', vendorId)

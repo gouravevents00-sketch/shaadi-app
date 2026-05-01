@@ -6,7 +6,7 @@ import { Plus, ChevronDown, ChevronRight, Trash2, Phone, Mail, IndianRupee, Cale
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment } from './actions'
+import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment, toggleVendorEvent } from './actions'
 import { usePrivacy } from '@/contexts/PrivacyContext'
 import DocumentsPanel from '@/components/shared/DocumentsPanel'
 import SmartDatePicker from '@/components/shared/SmartDatePicker'
@@ -29,6 +29,10 @@ interface Vendor {
 interface Payment {
   id: string; vendor_id: string; amount: number; due_date: string
   paid_date: string | null; mode: string | null; notes: string | null
+}
+
+interface WeddingEvent {
+  id: string; name: string; date: string
 }
 
 // ─── Status config ─────────────────────────────────────────────────────────
@@ -57,10 +61,12 @@ const fmt = (n: number) => n >= 100000
 
 // ─── Main component ────────────────────────────────────────────────────────
 
-export default function VendorsClient({ weddingId, initialVendors, initialPayments, quickDates = [] }: {
+export default function VendorsClient({ weddingId, initialVendors, initialPayments, initialEvents = [], initialVendorEvents = [], quickDates = [] }: {
   weddingId: string
   initialVendors: Vendor[]
   initialPayments: Payment[]
+  initialEvents?: WeddingEvent[]
+  initialVendorEvents?: { vendor_id: string; event_id: string }[]
   quickDates?: { label: string; value: string }[]
 }) {
   const { hidden } = usePrivacy()
@@ -68,6 +74,16 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
 
   const [vendors, setVendors] = useState<Vendor[]>(initialVendors)
   const [payments, setPayments] = useState<Payment[]>(initialPayments)
+  const [events] = useState<WeddingEvent[]>(initialEvents)
+  // vendorEvents: vendor_id → Set of event_ids
+  const [vendorEvents, setVendorEvents] = useState<Record<string, Set<string>>>(() => {
+    const m: Record<string, Set<string>> = {}
+    for (const ve of initialVendorEvents) {
+      if (!m[ve.vendor_id]) m[ve.vendor_id] = new Set()
+      m[ve.vendor_id].add(ve.event_id)
+    }
+    return m
+  })
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterCat, setFilterCat] = useState<string>('all')
@@ -147,6 +163,17 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
     setPayments(ps => ps.filter(p => p.vendor_id !== vendorId))
     const res = await deleteVendor(weddingId, vendorId)
     if ('error' in res) { toast.error(res.error) }
+  }
+
+  async function handleToggleVendorEvent(vendorId: string, eventId: string) {
+    setVendorEvents(prev => {
+      const next = { ...prev }
+      const s = new Set(next[vendorId] ?? [])
+      s.has(eventId) ? s.delete(eventId) : s.add(eventId)
+      next[vendorId] = s
+      return next
+    })
+    await toggleVendorEvent(weddingId, vendorId, eventId)
   }
 
   async function handleFieldSave(vendor: Vendor, field: keyof Vendor, value: string | number | null) {
@@ -364,6 +391,9 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                     vendor={v}
                     weddingId={weddingId}
                     payments={payments.filter(p => p.vendor_id === v.id)}
+                    events={events}
+                    assignedEventIds={vendorEvents[v.id] ?? new Set()}
+                    onToggleEvent={(eid) => handleToggleVendorEvent(v.id, eid)}
                     expanded={expanded.has(v.id)}
                     onToggle={() => toggleExpand(v.id)}
                     onCycleStatus={() => cycleStatus(v)}
@@ -447,10 +477,13 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
 
 // ─── VendorRow ─────────────────────────────────────────────────────────────
 
-function VendorRow({ vendor, weddingId, payments, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates }: {
+function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onToggleEvent, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates }: {
   vendor: Vendor
   weddingId: string
   payments: Payment[]
+  events: WeddingEvent[]
+  assignedEventIds: Set<string>
+  onToggleEvent: (eventId: string) => void
   expanded: boolean
   onToggle: () => void
   onCycleStatus: () => void
@@ -487,6 +520,15 @@ function VendorRow({ vendor, weddingId, payments, expanded, onToggle, onCycleSta
             </div>
           )}
         </div>
+        {/* Event tags (collapsed preview) */}
+        {assignedEventIds.size > 0 && !expanded && (
+          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+            {events.filter(e => assignedEventIds.has(e.id)).slice(0, 3).map(e => (
+              <span key={e.id} className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full font-medium">{e.name}</span>
+            ))}
+            {assignedEventIds.size > 3 && <span className="text-[10px] text-stone-400">+{assignedEventIds.size - 3}</span>}
+          </div>
+        )}
         <button
           onClick={e => { e.stopPropagation(); onCycleStatus() }}
           className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize transition-colors ${STATUS_STYLE[vendor.status]}`}
@@ -546,6 +588,24 @@ function VendorRow({ vendor, weddingId, payments, expanded, onToggle, onCycleSta
               <AddPaymentRow vendorId={vendor.id} onAdd={onAddPayment} quickDates={quickDates} />
             </div>
           </div>
+
+          {/* Event assignments */}
+          {events.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Assigned to ceremonies</p>
+              <div className="flex flex-wrap gap-1.5">
+                {events.map(e => {
+                  const on = assignedEventIds.has(e.id)
+                  return (
+                    <button key={e.id} onClick={() => onToggleEvent(e.id)}
+                      className={`text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${on ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-stone-500 border-stone-200 hover:border-rose-300 hover:text-rose-600'}`}>
+                      {on && '✓ '}{e.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Documents */}
           <div className="border-t border-stone-100 pt-4">

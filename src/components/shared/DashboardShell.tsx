@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { PrivacyProvider } from '@/contexts/PrivacyContext'
 import DashboardNav from './DashboardNav'
 import AiAssistant from './AiAssistant'
@@ -10,10 +10,12 @@ interface Props {
   user: { name: string; email: string } | null
   company: { id: string; name: string; logo_url: string | null } | null
   role: string | null
+  isPersonal?: boolean
+  personalWeddingId?: string | null
   children: React.ReactNode
 }
 
-export default function DashboardShell({ user, company, role, children }: Props) {
+export default function DashboardShell({ user, company, role, isPersonal, personalWeddingId, children }: Props) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
@@ -21,7 +23,10 @@ export default function DashboardShell({ user, company, role, children }: Props)
       <div className="min-h-screen bg-stone-50 flex">
         {/* Desktop sidebar */}
         <div className="hidden lg:block flex-shrink-0">
-          <DashboardNav user={user} company={company} role={role} />
+          <DashboardNav
+            user={user} company={company} role={role}
+            isPersonal={isPersonal} personalWeddingId={personalWeddingId}
+          />
         </div>
 
         {/* Mobile overlay */}
@@ -29,7 +34,11 @@ export default function DashboardShell({ user, company, role, children }: Props)
           <div className="lg:hidden fixed inset-0 z-50 flex">
             <div className="absolute inset-0 bg-black/40" onClick={() => setMobileNavOpen(false)} />
             <div className="relative z-10 flex-shrink-0">
-              <DashboardNav user={user} company={company} role={role} onNavigate={() => setMobileNavOpen(false)} />
+              <DashboardNav
+                user={user} company={company} role={role}
+                isPersonal={isPersonal} personalWeddingId={personalWeddingId}
+                onNavigate={() => setMobileNavOpen(false)}
+              />
             </div>
           </div>
         )}
@@ -45,7 +54,9 @@ export default function DashboardShell({ user, company, role, children }: Props)
               <div className="w-6 h-6 rounded bg-rose-700 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">✦</span>
               </div>
-              <span className="text-sm font-semibold text-stone-900">{company?.name || 'Creative Era OS'}</span>
+              <span className="text-sm font-semibold text-stone-900">
+                {isPersonal ? 'My Wedding' : (company?.name || 'Creative Era OS')}
+              </span>
             </div>
           </div>
           {children}

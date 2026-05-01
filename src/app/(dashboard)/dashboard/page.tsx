@@ -80,9 +80,19 @@ export default async function DashboardPage() {
 
   const { data: member } = await supabase
     .from('company_members')
-    .select('company_id, role')
+    .select('company_id, role, companies(is_personal)')
     .eq('user_id', user.id)
     .single()
+
+  // Self-planner: redirect straight to their wedding overview
+  const rawCo = member?.companies
+  const co = (Array.isArray(rawCo) ? rawCo[0] : rawCo) as { is_personal: boolean | null } | null
+  if (co?.is_personal === true && member?.company_id) {
+    const { data: pw } = await createServiceClient()
+      .from('weddings').select('id').eq('company_id', member.company_id).limit(1).single()
+    if (pw?.id) redirect(`/weddings/${pw.id}/overview`)
+    else redirect('/weddings/new')
+  }
 
   const [{ data: weddings }, { data: orgEvents }, digest] = await Promise.all([
     supabase

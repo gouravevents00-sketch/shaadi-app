@@ -96,3 +96,35 @@ export async function deleteEvent(weddingId: string, eventId: string) {
   revalidatePath(`/weddings/${weddingId}/events`)
   return { success: true }
 }
+
+export async function bulkCreateEvents(weddingId: string, events: Array<{
+  name: string
+  date: string
+  start_time: string
+  end_time: string
+  venue: string
+  city: string
+  expected_count: number
+  type: string
+  notes: string
+}>) {
+  const result = await getVerifiedUser(weddingId)
+  if ('error' in result) return { error: result.error }
+
+  const rows = events.map(e => ({ wedding_id: weddingId, ...e }))
+  const { data, error } = await result.serviceClient
+    .from('events')
+    .insert(rows)
+    .select('id, name, date, start_time, end_time, venue, city, expected_count, type, notes')
+
+  if (error) return { error: error.message }
+
+  // Auto-populate checklist/vendor/budget for each (non-blocking)
+  for (const e of events) {
+    autoPopulateFromEvent(result.serviceClient, weddingId, e.name, e.date)
+      .catch(() => {})
+  }
+
+  revalidatePath(`/weddings/${weddingId}/events`)
+  return { created: data }
+}

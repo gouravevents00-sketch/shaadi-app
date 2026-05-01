@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, Circle, CircleDot, Phone, Users, MapPin, Clock, Star, AlertCircle, CalendarDays, ChevronRight, Copy, Check } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Phone, Users, MapPin, Clock, Star, AlertCircle, CalendarDays, ChevronRight, Copy, Check, Plane, BedDouble, Utensils } from 'lucide-react'
 import { updateItem } from '../checklist/actions'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import type { ArrivalRecord, RoomCheckIn, FbRecord } from './page'
 
 interface Wedding {
   bride_name: string; groom_name: string; wedding_date: string | null; primary_city: string | null
@@ -46,7 +47,7 @@ const TYPE_COLORS: Record<string, string> = {
   other: 'bg-stone-100 text-stone-600',
 }
 
-export default function DayClient({ weddingId, wedding, today, todayEvents, allEvents, checklistItems, vendors, guests, guestEvents }: {
+export default function DayClient({ weddingId, wedding, today, todayEvents, allEvents, checklistItems, vendors, guests, guestEvents, arrivals = [], roomCheckIns = [], fbCounts = [] }: {
   weddingId: string
   wedding: Wedding
   today: string
@@ -56,6 +57,9 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
   vendors: Vendor[]
   guests: Guest[]
   guestEvents: GuestEvent[]
+  arrivals?: ArrivalRecord[]
+  roomCheckIns?: RoomCheckIn[]
+  fbCounts?: FbRecord[]
 }) {
   const [items, setItems] = useState<CheckItem[]>(checklistItems)
   const [copied, setCopied] = useState(false)
@@ -297,6 +301,91 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
                 ) : (
                   <span className="text-xs text-stone-300">No phone</span>
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Arrivals Board ──────────────────────────────────────── */}
+      {arrivals.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Plane className="w-3.5 h-3.5" /> Arrivals Today ({arrivals.length})
+          </h2>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {arrivals.map((a, i) => (
+              <div key={a.id} className={`flex items-center gap-3 px-4 py-3 ${i < arrivals.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-stone-900">{a.guests?.name ?? '—'}</p>
+                  <p className="text-xs text-stone-400 capitalize">
+                    {a.mode}{a.flight_train_no ? ` · ${a.flight_train_no}` : ''}
+                    {a.arrival_time ? ` · ${new Date(a.arrival_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {a.pickup_required && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">PICKUP</span>}
+                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize font-medium ${a.status === 'arrived' ? 'bg-emerald-100 text-emerald-700' : a.status === 'no_show' ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-500'}`}>
+                    {a.status.replace('_', ' ')}
+                  </span>
+                  {a.guests?.phone && (
+                    <a href={`tel:${a.guests.phone}`} className="text-rose-700 hover:text-rose-800">
+                      <Phone className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Room Check-ins ──────────────────────────────────────── */}
+      {roomCheckIns.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <BedDouble className="w-3.5 h-3.5" /> Checking In Today ({roomCheckIns.length})
+          </h2>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {roomCheckIns.map((ci, i) => (
+              <div key={ci.id} className={`flex items-center gap-3 px-4 py-3 ${i < roomCheckIns.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-stone-900">{ci.guests?.name ?? '—'}</p>
+                  <p className="text-xs text-stone-400">Check out: {ci.check_out}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-stone-700">Room {ci.rooms?.room_number}</span>
+                  <span className="text-xs text-stone-400 capitalize">{ci.rooms?.type}</span>
+                  {ci.kit_given
+                    ? <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">Kit ✓</span>
+                    : <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Kit pending</span>
+                  }
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── F&B Summary ─────────────────────────────────────────── */}
+      {fbCounts.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Utensils className="w-3.5 h-3.5" /> F&B Today
+          </h2>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {fbCounts.map((fb, i) => (
+              <div key={fb.id} className={`flex items-center gap-3 px-4 py-3 ${i < fbCounts.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                <div className="flex-1">
+                  <span className="text-xs text-stone-500 capitalize">{fb.events?.name} · {fb.meal_type.replace('_', ' ')}</span>
+                </div>
+                <div className="flex gap-3 text-xs text-stone-600">
+                  {fb.veg > 0 && <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">{fb.veg}V</span>}
+                  {fb.non_veg > 0 && <span className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded">{fb.non_veg}NV</span>}
+                  {fb.jain > 0 && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{fb.jain}J</span>}
+                  {fb.other > 0 && <span className="bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded">{fb.other}O</span>}
+                  <span className="font-medium text-stone-800">{fb.veg + fb.non_veg + fb.jain + fb.other} total</span>
+                </div>
               </div>
             ))}
           </div>
