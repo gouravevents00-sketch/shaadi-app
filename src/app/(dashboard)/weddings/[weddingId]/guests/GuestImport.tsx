@@ -8,17 +8,6 @@ import { Upload, Download, X, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { bulkImportGuests, type ImportRow } from './importActions'
 
-const TEMPLATE_COLUMNS = [
-  'Name', 'Phone', 'Email', 'Side', 'VIP', 'Dietary', 'Dietary Notes', 'Notes'
-]
-const SAMPLE_ROWS = [
-  ['Sharma Ji', '+91 98765 43210', 'sharma@email.com', 'groom', 'no', 'veg', '', 'Family friend'],
-  ['Sunita Auntie', '+91 91234 56789', '', 'bride', 'yes', 'jain', 'No onion garlic', 'VIP guest'],
-]
-const SIDE_NOTE = 'bride / groom / both / shared / neutral'
-const DIETARY_NOTE = 'veg / non_veg / jain / other'
-const VIP_NOTE = 'yes / no'
-
 const SIDE_COLORS: Record<string, string> = {
   bride: 'bg-pink-50 text-pink-700',
   groom: 'bg-blue-50 text-blue-700',
@@ -27,65 +16,13 @@ const SIDE_COLORS: Record<string, string> = {
   neutral: 'bg-stone-100 text-stone-500',
 }
 
-function buildWorkbook(dataRows: (string | number | boolean)[][], filename: string) {
-  const wb = XLSX.utils.book_new()
-
-  const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_COLUMNS, ...dataRows])
-  ws['!cols'] = [
-    { wch: 25 }, { wch: 18 }, { wch: 28 },
-    { wch: 12 }, { wch: 6 }, { wch: 10 }, { wch: 22 }, { wch: 25 }
-  ]
-  XLSX.utils.book_append_sheet(wb, ws, 'Guests')
-
-  const infoData = [
-    ['Column', 'Required', 'Valid Values', 'Example'],
-    ['Name', 'YES', 'Any text', 'Sharma Ji'],
-    ['Phone', 'no', 'Any', '+91 98765 43210'],
-    ['Email', 'no', 'Valid email', 'sharma@email.com'],
-    ['Side', 'no', SIDE_NOTE, 'bride'],
-    ['VIP', 'no', VIP_NOTE, 'yes'],
-    ['Dietary', 'no', DIETARY_NOTE, 'veg'],
-    ['Dietary Notes', 'no', 'Any text', 'No onion garlic'],
-    ['Notes', 'no', 'Any text', 'Family friend'],
-    [],
-    ['IMPORTANT: Do not change column headers.'],
-  ]
-  const wsInfo = XLSX.utils.aoa_to_sheet(infoData)
-  wsInfo['!cols'] = [{ wch: 16 }, { wch: 10 }, { wch: 35 }, { wch: 25 }]
-  XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions')
-
-  XLSX.writeFile(wb, filename)
-}
-
-function downloadTemplate() {
-  buildWorkbook(SAMPLE_ROWS, 'guest-list-template.xlsx')
-}
-
-function downloadSampleList() {
-  const sampleGuests: (string | number | boolean)[][] = [
-    // Name, Phone, Email, Side, VIP, Dietary, Dietary Notes, Notes
-    ['Ramesh Maheshwari', '+91 98100 11001', 'ramesh.m@gmail.com', 'groom', 'yes', 'veg', '', 'Groom\'s father'],
-    ['Sunita Maheshwari', '+91 98100 11002', '', 'groom', 'yes', 'veg', '', 'Groom\'s mother'],
-    ['Vikram Maheshwari', '+91 98765 43210', 'vikram.m@gmail.com', 'groom', 'no', 'non_veg', '', 'Groom\'s brother'],
-    ['Priya Maheshwari', '+91 98765 43211', '', 'groom', 'no', 'veg', '', 'Groom\'s sister'],
-    ['Anil Sharma', '+91 99001 22001', 'anil.s@gmail.com', 'groom', 'no', 'veg', '', 'Family friend'],
-    ['Kavita Sharma', '+91 99001 22002', '', 'groom', 'no', 'jain', 'No onion garlic', 'Anil ji\'s wife'],
-    ['Deepak Gupta', '+91 98001 33001', '', 'groom', 'no', 'veg', '', 'College friend'],
-    ['Manish Joshi', '+91 97001 44001', 'manish.j@gmail.com', 'groom', 'no', 'non_veg', '', 'Office colleague'],
-    ['Suresh Vijayvargia', '+91 98200 55001', 'suresh.v@gmail.com', 'bride', 'yes', 'veg', '', 'Bride\'s father'],
-    ['Meena Vijayvargia', '+91 98200 55002', '', 'bride', 'yes', 'veg', '', 'Bride\'s mother'],
-    ['Rahul Vijayvargia', '+91 98200 55003', 'rahul.v@gmail.com', 'bride', 'no', 'veg', '', 'Bride\'s brother'],
-    ['Neha Vijayvargia', '+91 98200 55004', '', 'bride', 'no', 'veg', '', 'Bride\'s sister'],
-    ['Pooja Agarwal', '+91 96001 66001', 'pooja.a@gmail.com', 'bride', 'no', 'jain', 'No root vegetables', 'Bride\'s best friend'],
-    ['Rohit Agarwal', '+91 96001 66002', '', 'bride', 'no', 'veg', '', 'Pooja\'s husband'],
-    ['Anjali Singh', '+91 95001 77001', '', 'bride', 'no', 'veg', '', 'School friend'],
-    ['Amit Bansal', '+91 94001 88001', 'amit.b@gmail.com', 'both', 'no', 'non_veg', '', 'Common friend'],
-    ['Ritu Bansal', '+91 94001 88002', '', 'both', 'no', 'veg', '', 'Amit\'s wife'],
-    ['Dr. Kamal Verma', '+91 93001 99001', 'dr.kamal@gmail.com', 'both', 'yes', 'veg', '', 'Family doctor'],
-    ['Shyam Lal Khatri', '+91 92001 10001', '', 'groom', 'no', 'veg', '', 'Chacha ji'],
-    ['Kamla Khatri', '+91 92001 10002', '', 'groom', 'no', 'veg', 'Diabetic - no sugar', 'Chachi ji'],
-  ]
-  buildWorkbook(sampleGuests, 'sample-guest-list.xlsx')
+// Template download now uses the smart API (exceljs with dropdowns, frozen header, live counts)
+// weddingId is passed via prop so the correct API URL is used
+function downloadSmartTemplate(weddingId: string) {
+  const a = document.createElement('a')
+  a.href = `/api/weddings/${weddingId}/import/template`
+  a.download = 'event-setup-pack.xlsx'
+  a.click()
 }
 
 function parseExcel(file: File): Promise<ImportRow[]> {
@@ -124,7 +61,7 @@ export default function GuestImport({
   onImported,
 }: {
   weddingId: string
-  onImported: (guests: ImportRow & { id: string; rsvp_token: string }[]) => void
+  onImported: (guests: (ImportRow & { id: string; rsvp_token: string })[]) => void
 }) {
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<ImportRow[]>([])
@@ -177,11 +114,8 @@ export default function GuestImport({
   return (
     <>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={downloadTemplate}>
-          <Download className="w-4 h-4 mr-1.5" /> Template
-        </Button>
-        <Button variant="outline" size="sm" onClick={downloadSampleList}>
-          <Download className="w-4 h-4 mr-1.5" /> Sample list
+        <Button variant="outline" size="sm" onClick={() => downloadSmartTemplate(weddingId)}>
+          <Download className="w-4 h-4 mr-1.5" /> Smart template
         </Button>
         <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
           <Upload className="w-4 h-4 mr-1.5" /> Import Excel

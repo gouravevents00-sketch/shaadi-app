@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Save, Check } from 'lucide-react'
+import { Save, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { savePreferences } from './actions'
 
 interface Props {
@@ -72,6 +72,15 @@ export default function PreferencesClient({ weddingId, initial }: Props) {
   const [prefs, setPrefs] = useState<Record<string, string>>(initial)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+
+  function toggleSection(id: string) {
+    setOpenSections(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  function sectionFillCount(section: typeof SECTIONS[0]) {
+    return section.fields.filter(f => (prefs[f.key] || '').trim()).length
+  }
 
   function toggle(key: string, option: string) {
     setPrefs(prev => {
@@ -114,42 +123,59 @@ export default function PreferencesClient({ weddingId, initial }: Props) {
         </button>
       </div>
 
-      {SECTIONS.map(section => (
-        <div key={section.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 bg-stone-50 border-b border-stone-100">
-            <p className="text-sm font-semibold text-stone-800">{section.emoji} {section.label}</p>
-          </div>
-          <div className="p-4 space-y-4">
-            {section.fields.map(field => (
-              <div key={field.key}>
-                <label className="text-xs font-medium text-stone-500 mb-2 block">{field.label}</label>
-                {field.type === 'chips' ? (
-                  <div className="flex flex-wrap gap-2">
-                    {field.options!.map(opt => (
-                      <button key={opt} type="button" onClick={() => toggle(field.key, opt)}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                          isSelected(field.key, opt)
-                            ? 'bg-rose-700 text-white border-rose-700'
-                            : 'border-stone-200 text-stone-600 hover:border-rose-300 hover:text-rose-700'
-                        }`}>
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <textarea
-                    value={prefs[field.key] || ''}
-                    onChange={e => setText(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    rows={2}
-                    className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-200 resize-none"
-                  />
+      {SECTIONS.map(section => {
+        const isOpen = !!openSections[section.id]
+        const filled = sectionFillCount(section)
+        return (
+          <div key={section.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            <button
+              onClick={() => toggleSection(section.id)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-stone-800">{section.emoji} {section.label}</p>
+                {filled > 0 && (
+                  <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                    {filled}/{section.fields.length} filled
+                  </span>
                 )}
               </div>
-            ))}
+              {isOpen ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+            </button>
+            {isOpen && (
+              <div className="p-4 space-y-4 border-t border-stone-100">
+                {section.fields.map(field => (
+                  <div key={field.key}>
+                    <label className="text-xs font-medium text-stone-500 mb-2 block">{field.label}</label>
+                    {field.type === 'chips' ? (
+                      <div className="flex flex-wrap gap-2">
+                        {field.options!.map(opt => (
+                          <button key={opt} type="button" onClick={() => toggle(field.key, opt)}
+                            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                              isSelected(field.key, opt)
+                                ? 'bg-rose-700 text-white border-rose-700'
+                                : 'border-stone-200 text-stone-600 hover:border-rose-300 hover:text-rose-700'
+                            }`}>
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <textarea
+                        value={prefs[field.key] || ''}
+                        onChange={e => setText(field.key, e.target.value)}
+                        placeholder={field.placeholder}
+                        rows={2}
+                        className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-200 resize-none"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       <button onClick={handleSave} disabled={saving}
         className={`w-full py-3 rounded-xl text-sm font-medium transition-colors ${saved ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-700 text-white hover:bg-rose-800'} disabled:opacity-50`}>

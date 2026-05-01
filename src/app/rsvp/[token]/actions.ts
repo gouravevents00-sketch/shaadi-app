@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendRsvpNotification } from '@/lib/email'
 
 export interface FamilyMember {
   name: string
@@ -57,6 +58,19 @@ export async function submitRsvp(
       .eq('guest_id', guestId)
 
     if (geError) return { success: false, error: geError.message }
+  }
+
+  // Fire notification (non-blocking)
+  const { data: guest } = await sc.from('guests').select('name, wedding_id, family_members').eq('id', guestId).single()
+  if (guest) {
+    const { data: wedding } = await sc.from('weddings').select('name').eq('id', guest.wedding_id).single()
+    const guestCount = 1 + (Array.isArray(data.family_members) ? data.family_members.length : 0)
+    sendRsvpNotification({
+      guestName: guest.name,
+      weddingName: wedding?.name ?? 'Wedding',
+      attending: data.attending,
+      guestCount,
+    }).catch(() => {})
   }
 
   return { success: true }

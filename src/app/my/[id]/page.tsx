@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MyCelebrationClient from './MyCelebrationClient'
+import EarlyBirdBanner from '@/components/shared/EarlyBirdBanner'
 
 export default async function MyCelebrationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -21,6 +22,8 @@ export default async function MyCelebrationPage({ params }: { params: Promise<{ 
 
   if (!celebration) redirect('/celebrate/new')
 
+  const { data: profile } = await sc.from('users').select('name, email').eq('id', user.id).single()
+
   const plan = (celebration as { plan?: string }).plan ?? 'free'
 
   // Fetch pro data only if on pro plan
@@ -32,13 +35,22 @@ export default async function MyCelebrationPage({ params }: { params: Promise<{ 
     : [{ data: [] }, { data: [] }]
 
   return (
-    <MyCelebrationClient
-      celebration={celebration}
-      initialTasks={tasks ?? []}
-      initialPlan={plan}
-      initialConnection={connection ?? null}
-      initialGuests={guests ?? []}
-      initialBudget={budget ?? []}
-    />
+    <div className="min-h-screen bg-stone-50">
+      {plan === 'free' && (
+        <EarlyBirdBanner
+          userName={profile?.name}
+          userEmail={profile?.email}
+          celebrationName={(celebration as { name?: string }).name}
+        />
+      )}
+      <MyCelebrationClient
+        celebration={celebration}
+        initialTasks={tasks ?? []}
+        initialPlan={plan}
+        initialConnection={connection ?? null}
+        initialGuests={guests ?? []}
+        initialBudget={budget ?? []}
+      />
+    </div>
   )
 }

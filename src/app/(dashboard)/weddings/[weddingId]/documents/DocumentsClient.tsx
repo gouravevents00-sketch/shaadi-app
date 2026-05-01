@@ -8,8 +8,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Upload, FileText, Trash2, Download, FolderOpen } from 'lucide-react'
-import { uploadDocument, deleteDocument } from './actions'
+import { Upload, FileText, Trash2, Download, FolderOpen, Eye, EyeOff } from 'lucide-react'
+import { uploadDocument, deleteDocument, toggleDocumentClientVisibility } from './actions'
 
 type DocRow = {
   id: string
@@ -21,6 +21,7 @@ type DocRow = {
   entity_id: string | null
   created_at: string
   url: string | null
+  shared_with_client?: boolean
 }
 
 type Props = {
@@ -95,6 +96,18 @@ export default function DocumentsClient({ weddingId, weddingName, initialDocs }:
     if ('error' in r) { toast.error(r.error); return }
     setDocs(prev => prev.filter(d => d.id !== doc.id))
     toast.success('Deleted')
+  }
+
+  async function handleToggleShare(doc: DocRow) {
+    const next = !doc.shared_with_client
+    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, shared_with_client: next } : d))
+    const r = await toggleDocumentClientVisibility(weddingId, doc.id, next)
+    if ('error' in r) {
+      setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, shared_with_client: doc.shared_with_client } : d))
+      toast.error(r.error)
+    } else {
+      toast.success(next ? 'Shared with client' : 'Hidden from client')
+    }
   }
 
   const totalDocs = docs.length
@@ -177,6 +190,13 @@ export default function DocumentsClient({ weddingId, weddingName, initialDocs }:
                       {formatBytes(doc.size_bytes)} · {new Date(doc.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
+                  <button
+                    onClick={() => handleToggleShare(doc)}
+                    title={doc.shared_with_client ? 'Visible to client — click to hide' : 'Hidden from client — click to share'}
+                    className={`transition-colors ${doc.shared_with_client ? 'text-emerald-500 hover:text-emerald-700' : 'text-stone-300 hover:text-stone-500'}`}
+                  >
+                    {doc.shared_with_client ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
                   {doc.url && (
                     <a href={doc.url} target="_blank" rel="noreferrer" className="text-stone-300 hover:text-stone-600 transition-colors">
                       <Download className="w-4 h-4" />

@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sendApprovalResponseNotification } from '@/lib/email'
 
 async function verifyClient(weddingId: string) {
   const supabase = await createClient()
@@ -18,12 +19,26 @@ async function verifyClient(weddingId: string) {
 export async function respondToApproval(weddingId: string, itemId: string, status: 'approved' | 'rejected' | 'revision', note?: string) {
   const r = await verifyClient(weddingId)
   if ('error' in r) return { error: r.error }
-  const { error } = await r.sc.from('approval_items')
+  const sc = createServiceClient()
+  const { error } = await sc.from('approval_items')
     .update({ status, client_note: note ?? null, updated_at: new Date().toISOString() })
     .eq('id', itemId).eq('wedding_id', weddingId)
   if (error) return { error: error.message }
   revalidatePath(`/portal/${weddingId}/approvals`)
   revalidatePath(`/weddings/${weddingId}/overview`)
+
+  // Fire notification (non-blocking)
+  const [{ data: item }, { data: wedding }] = await Promise.all([
+    sc.from('approval_items').select('title').eq('id', itemId).single(),
+    sc.from('weddings').select('name').eq('id', weddingId).single(),
+  ])
+  sendApprovalResponseNotification({
+    weddingName: wedding?.name ?? 'Wedding',
+    itemTitle: item?.title ?? itemId,
+    status,
+    note,
+  }).catch(() => {})
+
   return { success: true }
 }
 

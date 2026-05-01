@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sendPreferencesSavedNotification } from '@/lib/email'
 
 async function verifyClient(weddingId: string) {
   const supabase = await createClient()
@@ -33,5 +34,15 @@ export async function savePreferences(weddingId: string, prefs: Record<string, s
   if (error) return { error: error.message }
   revalidatePath(`/portal/${weddingId}/preferences`)
   revalidatePath(`/weddings/${weddingId}/overview`)
+
+  // Fire notification (non-blocking)
+  const { data: wedding } = await sc.from('weddings').select('name').eq('id', weddingId).single()
+  const filledCount = Object.values(prefs).filter(v => v && String(v).trim()).length
+  sendPreferencesSavedNotification({
+    weddingName: wedding?.name ?? 'Wedding',
+    side: r.side || 'both',
+    filledCount,
+  }).catch(() => {})
+
   return { success: true }
 }

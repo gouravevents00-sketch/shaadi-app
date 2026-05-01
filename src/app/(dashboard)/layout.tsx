@@ -23,18 +23,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const isPersonal = company?.is_personal === true
 
-  // For self-planners: find their wedding so nav can link directly
-  let personalWeddingId: string | null = null
+  // Block B2C (personal) users from agency dashboard entirely
   if (isPersonal && company?.id) {
     const sc = createServiceClient()
-    const { data: pw } = await sc
-      .from('weddings')
-      .select('id')
-      .eq('company_id', company.id)
-      .limit(1)
-      .single()
-    personalWeddingId = pw?.id ?? null
+    const { data: pw } = await sc.from('weddings').select('id').eq('company_id', company.id).limit(1).single()
+    redirect(pw?.id ? `/my/${pw.id}` : '/celebrate/new')
   }
+
+  // For self-planners: find their wedding so nav can link directly (unreachable after redirect above, kept for type safety)
+  const personalWeddingId: string | null = null
 
   return (
     <>

@@ -40,14 +40,14 @@ const ALL_QUICK_LINKS = (id: string) => [
 ]
 
 const SUB_TYPE_KEYS: Record<string, string[]> = {
-  conference:        ['live','agenda','speakers','delegates','guests','accommodation','sponsors','vendors','checklist','budget','reports','comms'],
-  award_ceremony:    ['live','agenda','guests','sponsors','vendors','checklist','budget','reports','comms'],
-  product_launch:    ['live','agenda','guests','vendors','checklist','budget','reports','comms'],
-  corporate_dinner:  ['live','agenda','guests','accommodation','vendors','checklist','budget','reports','comms'],
-  agm:               ['live','agenda','delegates','vendors','checklist','budget','reports','comms'],
+  conference:        ['live','agenda','speakers','delegates','guests','artists','volunteers','accommodation','sponsors','vendors','checklist','budget','reports','comms'],
+  award_ceremony:    ['live','agenda','guests','artists','volunteers','sponsors','vendors','checklist','budget','reports','comms'],
+  product_launch:    ['live','agenda','guests','artists','volunteers','vendors','checklist','budget','reports','comms'],
+  corporate_dinner:  ['live','agenda','guests','artists','volunteers','accommodation','vendors','checklist','budget','reports','comms'],
+  agm:               ['live','agenda','delegates','artists','volunteers','vendors','checklist','budget','reports','comms'],
   team_building:     ['live','accommodation','volunteers','vendors','checklist','budget','reports','comms'],
   trade_fair:        ['live','agenda','delegates','guests','sponsors','vendors','checklist','budget','reports','comms'],
-  state_function:    ['live','agenda','guests','accommodation','vendors','checklist','budget','reports','comms'],
+  state_function:    ['live','agenda','guests','artists','volunteers','accommodation','vendors','checklist','budget','reports','comms'],
   inauguration:      ['live','agenda','guests','vendors','checklist','budget','reports','comms'],
   republic_day:      ['live','agenda','guests','volunteers','vendors','checklist','budget','reports','comms'],
   felicitation:      ['live','agenda','guests','vendors','checklist','budget','reports','comms'],

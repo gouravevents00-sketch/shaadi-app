@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import * as XLSX from 'xlsx'
 import {
   CalendarDays, Users, CheckSquare, Building2,
   Plus, X, ArrowRight, Check, Loader2, Sparkles,
-  IndianRupee, ShoppingBag, UserPlus, ClipboardList
+  IndianRupee, ShoppingBag, UserPlus, ClipboardList,
+  FileSpreadsheet, Download, Upload, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +18,7 @@ import { createGuest } from '../guests/actions'
 import { bulkCreateRooms } from '../rooms/actions'
 import { createVendor } from '../vendors/actions'
 import { updateWeddingDetails, inviteCoordinator } from './actions'
+import { bulkImportPack, type GuestRow, type VendorRow, type BudgetRow } from '../overview/importPackActions'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -689,8 +692,69 @@ export default function SetupWizardClient({ weddingId, wedding, defaultDate, qui
   const [addedGuests,  setAddedGuests]  = useState<AddedGuest[]>([])
   const [addedVendors, setAddedVendors] = useState<AddedVendor[]>([])
   const [invitedTeam,  setInvitedTeam]  = useState<InvitedMember[]>([])
+  // Excel fork state (shown after step 1 — ceremonies)
+  const [excelFork,    setExcelFork]    = useState(false)
+  const [xlParsed,     setXlParsed]     = useState<{ guests: GuestRow[]; vendors: VendorRow[]; budget: BudgetRow[] } | null>(null)
+  const [xlFileName,   setXlFileName]   = useState('')
+  const [xlImporting,  setXlImporting]  = useState(false)
+  const [xlDone,       setXlDone]       = useState(false)
+  const xlFileRef = useRef<HTMLInputElement>(null)
 
   const isLast = step === STEPS.length - 1
+
+  // ── Excel fork helpers ───────────────────────────────────────────────────────
+  function parseXlsx(file: File) {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target?.result as ArrayBuffer), { type: 'array' })
+        const gs = wb.Sheets[wb.SheetNames.find(n => n.toLowerCase().includes('guest')) ?? '']
+        const vs = wb.Sheets[wb.SheetNames.find(n => n.toLowerCase().includes('vendor')) ?? '']
+        const bs = wb.Sheets[wb.SheetNames.find(n => n.toLowerCase().includes('budget')) ?? '']
+        const toRows = (ws: XLSX.WorkSheet) => ws ? XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' }) : []
+        const gRows = toRows(gs).filter((r: Record<string, string | number>) => String(r['Name'] || r['Name *'] || '').trim()).map((r: Record<string, string | number>) => ({
+          name: String(r['Name'] || r['Name *'] || ''), phone: String(r['Phone'] || ''), email: String(r['Email'] || ''),
+          side: String(r['Side'] || 'Both'), is_vip: ['yes','1','true'].includes(String(r['VIP'] || 'no').toLowerCase()),
+          dietary: String(r['Dietary'] || 'Veg').toLowerCase().replace(/[\s-]/g, '_'),
+          dietary_notes: String(r['Dietary Notes'] || ''), family_group: String(r['Family Group'] || ''), notes: String(r['Notes'] || ''),
+        })) as GuestRow[]
+        const vRows = toRows(vs).filter((r: Record<string, string | number>) => String(r['Vendor Name'] || r['Vendor Name *'] || '').trim()).map((r: Record<string, string | number>) => ({
+          category: String(r['Category'] || r['Category *'] || ''), name: String(r['Vendor Name'] || r['Vendor Name *'] || ''),
+          contact_name: String(r['Contact Person'] || ''), phone: String(r['Phone'] || ''), email: String(r['Email'] || ''),
+          status: String(r['Status'] || 'Enquired'), total_amount: Number(String(r['Total Amount (₹)'] ?? r['Total Amount'] ?? '0').replace(/[₹,\s]/g, '')) || 0,
+          paid_amount: Number(String(r['Advance Paid (₹)'] ?? r['Advance Paid'] ?? '0').replace(/[₹,\s]/g, '')) || 0, notes: String(r['Notes'] || ''),
+        })) as VendorRow[]
+        const bRows = toRows(bs).filter((r: Record<string, string | number>) => String(r['Item'] || r['Item *'] || '').trim()).map((r: Record<string, string | number>) => ({
+          category: String(r['Category'] || r['Category *'] || ''), item: String(r['Item'] || r['Item *'] || ''),
+          estimated: Number(String(r['Estimated (₹)'] ?? r['Estimated'] ?? '0').replace(/[₹,\s]/g, '')) || 0,
+          actual: Number(String(r['Actual (₹)'] ?? r['Actual'] ?? '0').replace(/[₹,\s]/g, '')) || 0,
+          vendor_name: String(r['Vendor Name'] || ''), notes: String(r['Notes'] || ''),
+        })) as BudgetRow[]
+        setXlParsed({ guests: gRows, vendors: vRows, budget: bRows })
+        setXlFileName(file.name)
+      } catch { toast.error('Could not read file — use the .xlsx template') }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  const handleXlDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const f = e.dataTransfer.files?.[0]
+    if (f?.name.endsWith('.xlsx')) parseXlsx(f)
+    else toast.error('Drop a .xlsx file')
+  }, [])
+
+  async function handleXlImport() {
+    if (!xlParsed) return
+    setXlImporting(true)
+    const res = await bulkImportPack(weddingId, xlParsed.guests, xlParsed.vendors, xlParsed.budget)
+    setXlImporting(false)
+    if ('error' in res) { toast.error(res.error); return }
+    setXlDone(true)
+    const total = res.guests.imported + res.vendors.imported + res.budget.imported
+    toast.success(`${total} records imported — skipping to final step!`)
+    setTimeout(() => { setExcelFork(false); setStep(6) }, 1200)
+  }
 
   // Derive quick dates from saved details
   const derivedQuickDates: { label: string; value: string }[] = quickDates.length > 0 ? quickDates : (() => {
@@ -785,15 +849,104 @@ export default function SetupWizardClient({ weddingId, wedding, defaultDate, qui
       <div className="flex-1 overflow-auto">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-stone-900">{STEP_TITLES[step]}</h2>
-            <p className="text-stone-500 text-sm mt-1">{STEP_SUBTITLES[step]}</p>
+            <h2 className="text-xl font-bold text-stone-900">
+              {excelFork ? 'Set up guests, vendors & budget' : STEP_TITLES[step]}
+            </h2>
+            <p className="text-stone-500 text-sm mt-1">
+              {excelFork
+                ? 'Download the personalized Excel pack → fill it in → upload once. Or continue manually step by step.'
+                : STEP_SUBTITLES[step]}
+            </p>
           </div>
 
           <div className={`bg-white border border-stone-200 rounded-2xl p-6 ${step === 0 ? '' : ''}`}>
             {step === 0 && (
               <StepDetails weddingId={weddingId} wedding={wedding} onSaved={d => { setSavedDetails(d); setStep(1) }} />
             )}
-            {step === 1 && (
+
+            {/* ── Excel fork ── shown between step 1 and step 2 ── */}
+            {excelFork && (
+              <div className="space-y-5">
+                {xlDone ? (
+                  <div className="py-6 text-center space-y-3">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                    <p className="text-base font-semibold text-stone-800">Import complete — taking you to the final step!</p>
+                  </div>
+                ) : xlParsed ? (
+                  /* Preview */
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-stone-700">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        <span className="font-medium">{xlFileName}</span>
+                      </div>
+                      <button onClick={() => { setXlParsed(null); setXlFileName('') }} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: 'Guests', count: xlParsed.guests.length, color: 'bg-rose-50 text-rose-700' },
+                        { label: 'Vendors', count: xlParsed.vendors.length, color: 'bg-blue-50 text-blue-700' },
+                        { label: 'Budget items', count: xlParsed.budget.length, color: 'bg-emerald-50 text-emerald-700' },
+                      ].map(({ label, count, color }) => (
+                        <div key={label} className={`rounded-xl p-3 text-center ${color}`}>
+                          <p className="text-xl font-bold">{count}</p>
+                          <p className="text-xs font-medium">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <Button onClick={handleXlImport} disabled={xlImporting} className="w-full bg-rose-700 hover:bg-rose-800">
+                      {xlImporting ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Importing…</> : `Import all ${xlParsed.guests.length + xlParsed.vendors.length + xlParsed.budget.length} rows →`}
+                    </Button>
+                    <button onClick={() => { setExcelFork(false); setStep(2) }} className="w-full text-xs text-stone-400 hover:text-stone-600 text-center py-1">
+                      Or skip this and fill manually instead →
+                    </button>
+                  </div>
+                ) : (
+                  /* Download + Upload */
+                  <div className="space-y-4">
+                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-4">
+                      <p className="text-sm font-semibold text-rose-800 mb-0.5">Your personalized pack is ready</p>
+                      <p className="text-xs text-rose-600">Pre-filled with vendor suggestions for your ceremonies. Download → fill in Excel → upload once.</p>
+                    </div>
+                    <a
+                      href={`/api/weddings/${weddingId}/import/template`}
+                      download
+                      className="flex items-center justify-between w-full bg-stone-900 hover:bg-stone-700 text-white rounded-xl px-4 py-3 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileSpreadsheet className="w-5 h-5 text-stone-400 group-hover:text-white" />
+                        <div>
+                          <p className="text-sm font-semibold">Download personalized pack</p>
+                          <p className="text-xs text-stone-400">Guests · Vendors (pre-filled) · Budget · Sample data</p>
+                        </div>
+                      </div>
+                      <Download className="w-4 h-4 text-stone-400" />
+                    </a>
+                    <div
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={handleXlDrop}
+                      onClick={() => xlFileRef.current?.click()}
+                      className="border-2 border-dashed border-stone-200 hover:border-stone-300 rounded-xl p-6 text-center cursor-pointer transition-colors hover:bg-stone-50"
+                    >
+                      <Upload className="w-7 h-7 text-stone-300 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-stone-600">Upload the filled file</p>
+                      <p className="text-xs text-stone-400 mt-0.5">Drag & drop or click — .xlsx only</p>
+                      <input ref={xlFileRef} type="file" accept=".xlsx" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) parseXlsx(f); if (xlFileRef.current) xlFileRef.current.value = '' }} />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => { setExcelFork(false); setStep(2) }}
+                        className="flex-1 text-sm text-stone-500 hover:text-stone-800 border border-stone-200 rounded-lg py-2.5 transition-colors">
+                        ← Fill manually instead
+                      </button>
+                    </div>
+                    <p className="text-xs text-center text-stone-400">Safe to re-upload anytime — nothing gets deleted</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 1 && !excelFork && (
               <StepEvents
                 weddingId={weddingId}
                 defaultDate={savedDetails.date_from || derivedQuickDates[0]?.value || ''}
@@ -804,6 +957,7 @@ export default function SetupWizardClient({ weddingId, wedding, defaultDate, qui
                 onAdded={e => setAddedEvents(prev => [...prev, e])}
               />
             )}
+
             {step === 2 && <StepVenue rooms={rooms} setRooms={setRooms} venue={savedDetails.primary_venue} />}
             {step === 3 && <StepGuests weddingId={weddingId} added={addedGuests} onAdded={g => setAddedGuests(prev => [...prev, g])} />}
             {step === 4 && <StepVendors weddingId={weddingId} added={addedVendors} onAdded={v => setAddedVendors(prev => [...prev, v])} />}
@@ -820,7 +974,7 @@ export default function SetupWizardClient({ weddingId, wedding, defaultDate, qui
           </div>
 
           {/* Nav — Step 0 has its own Save & Continue button */}
-          {step > 0 && (
+          {step > 0 && !excelFork && (
             <div className="flex items-center justify-between mt-6">
               <Button variant="outline" onClick={() => setStep(s => s - 1)}>← Back</Button>
               <div className="flex items-center gap-3">
@@ -830,12 +984,12 @@ export default function SetupWizardClient({ weddingId, wedding, defaultDate, qui
                   </button>
                 )}
                 <Button
-                  onClick={isLast ? handleFinish : () => setStep(s => s + 1)}
+                  onClick={isLast ? handleFinish : step === 1 ? () => setExcelFork(true) : () => setStep(s => s + 1)}
                   disabled={isPending}
                   className="bg-rose-700 hover:bg-rose-800"
                 >
                   {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-                  {isLast ? 'Finish setup' : <>Next <ArrowRight className="w-4 h-4 ml-1.5" /></>}
+                  {isLast ? 'Finish setup' : step === 1 ? <>Continue <ArrowRight className="w-4 h-4 ml-1.5" /></> : <>Next <ArrowRight className="w-4 h-4 ml-1.5" /></>}
                 </Button>
               </div>
             </div>

@@ -177,7 +177,7 @@ export default function MyCelebrationClient({
           <div className="w-6 h-6 rounded bg-rose-700 flex items-center justify-center">
             <span className="text-white text-xs font-bold">✦</span>
           </div>
-          <span className="text-sm font-semibold text-stone-700">Creative Era OS</span>
+          <span className="text-sm font-semibold text-stone-700">My Celebrations</span>
         </div>
         <Link href="/celebrate/new" className="text-xs text-stone-500 hover:text-stone-700">+ New celebration</Link>
       </nav>
@@ -569,11 +569,15 @@ export default function MyCelebrationClient({
           <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-5">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-rose-500 mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold text-stone-800 text-sm">Want to manage everything yourself?</p>
-                <p className="text-xs text-stone-600 mt-0.5 mb-3">
-                  Track guests, manage vendors, plan seating, set up reminders — upgrade to Pro and run your entire event independently.
-                </p>
+                <ul className="mt-2 mb-3 space-y-1">
+                  {['Guest list with dietary & RSVP tracking', 'Budget tracker with actuals vs estimates', 'Full vendor management dashboard', 'Seating planner & document store'].map(f => (
+                    <li key={f} className="text-xs text-stone-600 flex items-center gap-1.5">
+                      <span className="text-emerald-500 font-bold">✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
                 <button
                   disabled={isPending}
                   onClick={() => {
@@ -587,7 +591,7 @@ export default function MyCelebrationClient({
                   }}
                   className="inline-flex items-center gap-1.5 text-xs bg-rose-700 text-white px-3 py-1.5 rounded-lg hover:bg-rose-800 disabled:opacity-50 transition-colors">
                   {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                  Upgrade to Pro
+                  Upgrade to Pro — it&apos;s free
                 </button>
               </div>
             </div>
@@ -602,7 +606,7 @@ export default function MyCelebrationClient({
           </div>
         )}
 
-        {/* Connect with Creative Era */}
+        {/* Connect with planner */}
         {!connection ? (
           <div className="bg-white border border-stone-200 rounded-2xl p-5">
             <div className="flex items-start gap-3">
@@ -610,9 +614,9 @@ export default function MyCelebrationClient({
                 <Handshake className="w-5 h-5 text-rose-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-stone-800 text-sm">Need a professional planner?</p>
+                <p className="font-semibold text-stone-800 text-sm">Want a professional planner?</p>
                 <p className="text-xs text-stone-500 mt-0.5 mb-3">
-                  Connect with Creative Era — our team takes over management and you get a dedicated portal for your guest list, functions, and preferences.
+                  Connect with a wedding planner — they take over event management and you get a dedicated portal for your guest list, functions, and preferences.
                 </p>
                 <button
                   disabled={connectingNow}
@@ -622,11 +626,11 @@ export default function MyCelebrationClient({
                     setConnectingNow(false)
                     if ('error' in res) { toast.error(res.error); return }
                     setConnection({ id: '', status: res.status ?? 'pending', wedding_id: res.weddingId ?? null })
-                    toast.success('Connected! Our team will reach out shortly.')
+                    toast.success('Request sent! Your planner will reach out shortly.')
                   }}
                   className="inline-flex items-center gap-1.5 text-xs bg-rose-700 text-white px-3 py-1.5 rounded-lg hover:bg-rose-800 disabled:opacity-50 transition-colors">
                   {connectingNow ? <Loader2 className="w-3 h-3 animate-spin" /> : <Handshake className="w-3 h-3" />}
-                  Connect with Creative Era
+                  Connect with a planner
                 </button>
               </div>
             </div>
@@ -636,7 +640,7 @@ export default function MyCelebrationClient({
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-emerald-800">Connected to Creative Era</p>
+                <p className="text-sm font-semibold text-emerald-800">Planner connected</p>
                 <p className="text-xs text-emerald-600">Your planner has accepted — portal is ready</p>
               </div>
             </div>
@@ -646,12 +650,18 @@ export default function MyCelebrationClient({
             </a>
           </div>
         ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
-            <Handshake className="w-5 h-5 text-amber-500 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-amber-800">Request sent to Creative Era</p>
-              <p className="text-xs text-amber-600">We'll reach out once our team reviews your request</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <div className="flex items-center gap-3">
+              <Handshake className="w-5 h-5 text-amber-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Request under review</p>
+                <p className="text-xs text-amber-600">Your planner will reach out soon to confirm</p>
+              </div>
             </div>
+            <a href={`/my/${celebration.id}/preferences`}
+              className="mt-3 flex items-center gap-1.5 text-xs text-amber-700 font-medium hover:text-amber-900">
+              Fill your preferences while you wait <ArrowRight className="w-3 h-3" />
+            </a>
           </div>
         )}
 

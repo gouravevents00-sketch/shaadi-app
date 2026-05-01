@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Users, Search, Star, Link2, MessageCircle, Copy, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, Search, Star, Link2, MessageCircle, Copy, ExternalLink, ScanLine, CheckCircle2 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select'
-import { createGuest, updateGuest, deleteGuest } from './actions'
+import { createGuest, updateGuest, deleteGuest, checkInGuest } from './actions'
 import { assignGuestToEvent, unassignGuestFromEvent } from './assignActions'
 import GuestImport from './GuestImport'
 
@@ -54,6 +54,7 @@ interface Guest {
   arrival_mode: string | null
   needs_pickup: boolean
   family_group: string | null
+  checked_in_at: string | null
 }
 
 const SIDE_LABELS: Record<string, string> = {
@@ -104,6 +105,7 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
   const [waOpen, setWaOpen] = useState(false)
   const [waSide, setWaSide] = useState<'all' | 'bride' | 'groom'>('all')
   const [groupByFamily, setGroupByFamily] = useState(false)
+  const [checkInMode, setCheckInMode] = useState(false)
 
   function buildRsvpLink(token: string) {
     return `${window.location.origin}/rsvp/${token}`
@@ -195,6 +197,7 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
           arrival_mode: null,
           needs_pickup: false,
           family_group: form.family_group || null,
+          checked_in_at: null,
         }])
         toast.success('Guest added')
         setOpen(false)
@@ -230,6 +233,17 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
     return guestEvents.filter(ge => ge.guest_id === guestId).length
   }
 
+  async function handleCheckIn(guest: Guest) {
+    const now = new Date().toISOString()
+    const newVal = guest.checked_in_at ? null : now
+    setGuests(prev => prev.map(g => g.id === guest.id ? { ...g, checked_in_at: newVal } : g))
+    const result = await checkInGuest(weddingId, guest.id, !guest.checked_in_at)
+    if (result.error) {
+      setGuests(prev => prev.map(g => g.id === guest.id ? { ...g, checked_in_at: guest.checked_in_at } : g))
+      toast.error(result.error)
+    }
+  }
+
   const filtered = guests.filter(g => {
     const matchSearch = g.name.toLowerCase().includes(search.toLowerCase()) ||
       g.phone?.includes(search) || g.email?.toLowerCase().includes(search.toLowerCase())
@@ -244,6 +258,7 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
     groom: guests.filter(g => g.side === 'groom').length,
     vip: guests.filter(g => g.is_vip).length,
     rsvped: guests.filter(g => g.rsvp_submitted_at).length,
+    checkedIn: guests.filter(g => g.checked_in_at).length,
   }
 
   return (
@@ -251,12 +266,20 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Guests</h1>
-          <p className="text-stone-500 text-sm mt-1">{counts.total} bookings · {counts.totalPax} pax · {counts.bride} bride · {counts.groom} groom · {counts.vip} VIP · {counts.rsvped} RSVP'd</p>
+          <p className="text-stone-500 text-sm mt-1">{counts.total} bookings · {counts.totalPax} pax · {counts.bride} bride · {counts.groom} groom · {counts.vip} VIP · {counts.rsvped} RSVP'd{counts.checkedIn > 0 ? ` · ${counts.checkedIn} checked in` : ''}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <GuestImport weddingId={weddingId} onImported={() => {}} />
           <Button variant="outline" size="sm" onClick={() => setWaOpen(true)}>
             <MessageCircle className="w-4 h-4 mr-1.5" /> Share RSVP
+          </Button>
+          <Button
+            variant={checkInMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCheckInMode(m => !m)}
+            className={checkInMode ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+          >
+            <ScanLine className="w-4 h-4 mr-1.5" /> {checkInMode ? 'Exit check-in' : 'Check-in'}
           </Button>
           <Button onClick={openNew} className="bg-rose-700 hover:bg-rose-800">
             <Plus className="w-4 h-4 mr-1.5" /> Add guest
@@ -332,7 +355,7 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
           : { '': filtered }
 
         const GuestRow = ({ guest }: { guest: Guest }) => (
-          <tr key={guest.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
+          <tr key={guest.id} className={`border-b border-stone-100 last:border-0 hover:bg-stone-50 ${guest.checked_in_at ? 'bg-emerald-50/40' : ''}`}>
             <td className="px-4 py-3">
               <div className="flex items-center gap-2">
                 {guest.is_vip && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />}
@@ -342,6 +365,9 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
                 )}
                 {guest.rsvp_submitted_at && (
                   <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">RSVP'd</span>
+                )}
+                {guest.checked_in_at && (
+                  <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">✓ Checked in</span>
                 )}
               </div>
               {guest.email && <p className="text-xs text-stone-400">{guest.email}</p>}
@@ -361,25 +387,39 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
             </td>
             <td className="px-4 py-3">
               <div className="flex gap-1 justify-end">
-                <Link href={`/weddings/${weddingId}/guests/${guest.id}`}>
-                  <Button size="icon-sm" variant="ghost" title="Guest 360 — view all details">
-                    <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+                {checkInMode ? (
+                  <Button
+                    size="sm"
+                    variant={guest.checked_in_at ? 'default' : 'outline'}
+                    className={guest.checked_in_at ? 'bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-3' : 'h-7 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50'}
+                    onClick={() => handleCheckIn(guest)}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                    {guest.checked_in_at ? 'Checked in' : 'Check in'}
                   </Button>
-                </Link>
-                <Button size="icon-sm" variant="ghost" title="Copy RSVP link"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/rsvp/${guest.rsvp_token}`)
-                    toast.success('RSVP link copied')
-                  }}>
-                  <Link2 className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="icon-sm" variant="ghost" onClick={() => openEdit(guest)}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="icon-sm" variant="ghost" onClick={() => setDeleteId(guest.id)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                ) : (
+                  <>
+                    <Link href={`/weddings/${weddingId}/guests/${guest.id}`}>
+                      <Button size="icon-sm" variant="ghost" title="Guest 360 — view all details">
+                        <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+                      </Button>
+                    </Link>
+                    <Button size="icon-sm" variant="ghost" title="Copy RSVP link"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/rsvp/${guest.rsvp_token}`)
+                        toast.success('RSVP link copied')
+                      }}>
+                      <Link2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon-sm" variant="ghost" onClick={() => openEdit(guest)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon-sm" variant="ghost" onClick={() => setDeleteId(guest.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             </td>
           </tr>

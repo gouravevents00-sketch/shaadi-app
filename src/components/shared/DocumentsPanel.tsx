@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Paperclip, Upload, Trash2, FileText, Image, Download, X } from 'lucide-react'
+import { Paperclip, Upload, Trash2, FileText, Image, Download, X, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { uploadDocument, getDocuments, deleteDocument } from '@/app/(dashboard)/weddings/[weddingId]/documents/actions'
+import { uploadDocument, getDocuments, deleteDocument, toggleDocumentClientVisibility } from '@/app/(dashboard)/weddings/[weddingId]/documents/actions'
 
 interface Doc {
   id: string
@@ -14,6 +14,7 @@ interface Doc {
   size_bytes: number | null
   created_at: string
   url: string | null
+  shared_with_client?: boolean
 }
 
 function fmtSize(bytes: number | null) {
@@ -35,11 +36,13 @@ export default function DocumentsPanel({
   entityType,
   entityId,
   label = 'Documents',
+  showShareToggle = false,
 }: {
   weddingId: string
   entityType: string
   entityId: string | null
   label?: string
+  showShareToggle?: boolean
 }) {
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,6 +105,18 @@ export default function DocumentsPanel({
     }
   }
 
+  async function handleToggleShare(doc: Doc) {
+    const next = !doc.shared_with_client
+    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, shared_with_client: next } : d))
+    const res = await toggleDocumentClientVisibility(weddingId, doc.id, next)
+    if (res.error) {
+      setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, shared_with_client: doc.shared_with_client } : d))
+      toast.error(res.error)
+    } else {
+      toast.success(next ? 'Visible to client' : 'Hidden from client')
+    }
+  }
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     handleFiles(e.dataTransfer.files)
@@ -150,9 +165,23 @@ export default function DocumentsPanel({
               <FileIcon mime={doc.mime_type} />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-stone-800 truncate">{doc.name}</p>
-                <p className="text-[10px] text-stone-400">{fmtSize(doc.size_bytes)}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] text-stone-400">{fmtSize(doc.size_bytes)}</p>
+                  {showShareToggle && doc.shared_with_client && (
+                    <span className="text-[10px] text-emerald-600 font-medium">· visible to client</span>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity items-center">
+                {showShareToggle && (
+                  <button
+                    onClick={() => handleToggleShare(doc)}
+                    title={doc.shared_with_client ? 'Visible to client — click to hide' : 'Hidden from client — click to share'}
+                    className={`p-1 rounded transition-colors ${doc.shared_with_client ? 'text-emerald-500 hover:text-emerald-700' : 'text-stone-300 hover:text-stone-500'}`}
+                  >
+                    {doc.shared_with_client ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  </button>
+                )}
                 {doc.url && (
                   <a href={doc.url} target="_blank" rel="noopener noreferrer"
                     className="p-1 text-stone-400 hover:text-stone-600 rounded">

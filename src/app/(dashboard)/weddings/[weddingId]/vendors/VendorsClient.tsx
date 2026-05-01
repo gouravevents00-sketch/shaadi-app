@@ -61,8 +61,11 @@ const fmt = (n: number) => n >= 100000
 
 // ─── Main component ────────────────────────────────────────────────────────
 
-export default function VendorsClient({ weddingId, initialVendors, initialPayments, initialEvents = [], initialVendorEvents = [], quickDates = [] }: {
+const AMOUNT_ROLES = ['owner', 'admin', 'accounts']
+
+export default function VendorsClient({ weddingId, role = 'coordinator', initialVendors, initialPayments, initialEvents = [], initialVendorEvents = [], quickDates = [] }: {
   weddingId: string
+  role?: string
   initialVendors: Vendor[]
   initialPayments: Payment[]
   initialEvents?: WeddingEvent[]
@@ -70,7 +73,8 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
   quickDates?: { label: string; value: string }[]
 }) {
   const { hidden } = usePrivacy()
-  const pmoney = (n: number) => hidden ? '₹ ••••' : fmt(n)
+  const canSeeAmounts = AMOUNT_ROLES.includes(role)
+  const pmoney = (n: number) => (!canSeeAmounts || hidden) ? '₹ ••••' : fmt(n)
 
   const [vendors, setVendors] = useState<Vendor[]>(initialVendors)
   const [payments, setPayments] = useState<Payment[]>(initialPayments)
@@ -403,6 +407,7 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                     onTogglePaid={togglePaid}
                     onDeletePayment={handleDeletePayment}
                     quickDates={quickDates}
+                    canSeeAmounts={canSeeAmounts}
                   />
                 ))}
                 {/* Inline add for this category */}
@@ -416,14 +421,16 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                       onKeyDown={e => { if (e.key === 'Enter') handleAdd(cat); if (e.key === 'Escape') setAddingCat(null) }}
                       className="h-7 text-sm border-0 bg-transparent focus-visible:ring-0 p-0 flex-1"
                     />
-                    <Input
-                      placeholder="₹ amount"
-                      value={addTotal}
-                      onChange={e => setAddTotal(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') handleAdd(cat); if (e.key === 'Escape') setAddingCat(null) }}
-                      className="h-7 text-sm border-0 bg-transparent focus-visible:ring-0 p-0 w-24"
-                      type="number"
-                    />
+                    {canSeeAmounts && (
+                      <Input
+                        placeholder="₹ amount"
+                        value={addTotal}
+                        onChange={e => setAddTotal(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAdd(cat); if (e.key === 'Escape') setAddingCat(null) }}
+                        className="h-7 text-sm border-0 bg-transparent focus-visible:ring-0 p-0 w-24"
+                        type="number"
+                      />
+                    )}
                     <button onClick={() => handleAdd(cat)} className="text-xs bg-stone-800 text-white px-2 py-1 rounded-md hover:bg-stone-700">Add</button>
                     <button onClick={() => setAddingCat(null)} className="text-stone-400 hover:text-stone-600"><X className="w-3.5 h-3.5" /></button>
                   </div>
@@ -449,14 +456,16 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
                 onKeyDown={e => { if (e.key === 'Enter') handleAdd(addingCat); if (e.key === 'Escape') setAddingCat(null) }}
                 className="h-7 text-sm border-0 bg-transparent focus-visible:ring-0 p-0 flex-1"
               />
-              <Input
-                placeholder="₹ amount"
-                value={addTotal}
-                onChange={e => setAddTotal(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleAdd(addingCat); if (e.key === 'Escape') setAddingCat(null) }}
-                className="h-7 text-sm border-0 bg-transparent focus-visible:ring-0 p-0 w-24"
-                type="number"
-              />
+              {canSeeAmounts && (
+                <Input
+                  placeholder="₹ amount"
+                  value={addTotal}
+                  onChange={e => setAddTotal(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(addingCat); if (e.key === 'Escape') setAddingCat(null) }}
+                  className="h-7 text-sm border-0 bg-transparent focus-visible:ring-0 p-0 w-24"
+                  type="number"
+                />
+              )}
               <button onClick={() => handleAdd(addingCat)} className="text-xs bg-stone-800 text-white px-2 py-1 rounded-md hover:bg-stone-700">Add</button>
               <button onClick={() => setAddingCat(null)} className="text-stone-400 hover:text-stone-600"><X className="w-3.5 h-3.5" /></button>
             </div>
@@ -477,7 +486,7 @@ export default function VendorsClient({ weddingId, initialVendors, initialPaymen
 
 // ─── VendorRow ─────────────────────────────────────────────────────────────
 
-function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onToggleEvent, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates }: {
+function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onToggleEvent, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates, canSeeAmounts = true }: {
   vendor: Vendor
   weddingId: string
   payments: Payment[]
@@ -493,9 +502,10 @@ function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onTo
   onTogglePaid: (p: Payment) => void
   onDeletePayment: (p: Payment) => void
   quickDates?: { label: string; value: string }[]
+  canSeeAmounts?: boolean
 }) {
   const { hidden } = usePrivacy()
-  const pmoney = (n: number) => hidden ? '₹ ••••' : fmt(n)
+  const pmoney = (n: number) => (!canSeeAmounts || hidden) ? '₹ ••••' : fmt(n)
   const paidPct = vendor.total_amount > 0 ? Math.min(100, (Number(vendor.paid_amount) / Number(vendor.total_amount)) * 100) : 0
   const remaining = Number(vendor.total_amount) - Number(vendor.paid_amount)
 
@@ -548,7 +558,9 @@ function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onTo
             <EditField label="Contact name" value={vendor.contact_name ?? ''} onSave={v => onFieldSave('contact_name', v || null)} icon={<Pencil className="w-3 h-3" />} />
             <EditField label="Phone" value={vendor.phone ?? ''} onSave={v => onFieldSave('phone', v || null)} icon={<Phone className="w-3 h-3" />} />
             <EditField label="Email" value={vendor.email ?? ''} onSave={v => onFieldSave('email', v || null)} icon={<Mail className="w-3 h-3" />} />
-            <EditField label="Total amount (₹)" value={String(vendor.total_amount || '')} onSave={v => onFieldSave('total_amount', parseFloat(v) || 0)} type="number" icon={<IndianRupee className="w-3 h-3" />} />
+            {canSeeAmounts && (
+              <EditField label="Total amount (₹)" value={String(vendor.total_amount || '')} onSave={v => onFieldSave('total_amount', parseFloat(v) || 0)} type="number" icon={<IndianRupee className="w-3 h-3" />} />
+            )}
           </div>
 
           {/* Notes */}
@@ -585,7 +597,7 @@ function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onTo
                   </div>
                 )
               })}
-              <AddPaymentRow vendorId={vendor.id} onAdd={onAddPayment} quickDates={quickDates} />
+              {canSeeAmounts && <AddPaymentRow vendorId={vendor.id} onAdd={onAddPayment} quickDates={quickDates} />}
             </div>
           </div>
 
@@ -614,6 +626,7 @@ function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onTo
               entityType="vendor"
               entityId={vendor.id}
               label="Contracts & documents"
+              showShareToggle
             />
           </div>
         </div>

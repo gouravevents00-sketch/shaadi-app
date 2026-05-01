@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { CheckCircle2, Circle, CircleDot, Clock } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Clock, FileText, Image, Download } from 'lucide-react'
+import { getClientDocuments } from '@/app/(dashboard)/weddings/[weddingId]/documents/actions'
 
 type CheckItem = { id: string; title: string; category: string; status: string; due_date: string | null }
 type Vendor    = { id: string; name: string; category: string; status: string; total_amount: number; paid_amount: number }
@@ -16,7 +17,7 @@ export default async function ProgressPage({ params }: { params: Promise<{ weddi
   const sc = createServiceClient()
   const today = new Date().toISOString().split('T')[0]
 
-  const [{ data: items }, { data: vendors }, { data: wedding }] = await Promise.all([
+  const [{ data: items }, { data: vendors }, { data: wedding }, docsResult] = await Promise.all([
     sc.from('checklist_items')
       .select('id, title, category, status, due_date')
       .eq('wedding_id', weddingId)
@@ -25,7 +26,9 @@ export default async function ProgressPage({ params }: { params: Promise<{ weddi
       .select('id, name, category, status, total_amount, paid_amount')
       .eq('wedding_id', weddingId).order('category'),
     sc.from('weddings').select('bride_name, groom_name, wedding_date').eq('id', weddingId).single(),
+    getClientDocuments(weddingId),
   ])
+  const sharedDocs = docsResult.docs ?? []
 
   const checklist = (items ?? []) as CheckItem[]
   const allVendors = (vendors ?? []) as Vendor[]
@@ -100,6 +103,35 @@ export default async function ProgressPage({ params }: { params: Promise<{ weddi
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Shared documents */}
+      {sharedDocs.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">Documents from your planner</p>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden divide-y divide-stone-100">
+            {sharedDocs.map((doc: { id: string; name: string; mime_type: string | null; size_bytes: number | null; entity_type: string; url: string | null }) => {
+              const isImage = doc.mime_type?.startsWith('image/')
+              return (
+                <div key={doc.id} className="flex items-center gap-3 px-4 py-3">
+                  {isImage
+                    ? <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    : <FileText className="w-4 h-4 text-stone-400 flex-shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-stone-800 truncate">{doc.name}</p>
+                    <p className="text-xs text-stone-400 capitalize">{doc.entity_type === 'vendor' ? 'Contract' : doc.entity_type}</p>
+                  </div>
+                  {doc.url && (
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-rose-700 hover:text-rose-800 font-medium flex-shrink-0">
+                      <Download className="w-3.5 h-3.5" /> Download
+                    </a>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

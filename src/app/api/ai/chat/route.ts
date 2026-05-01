@@ -326,8 +326,12 @@ async function buildWeddingContext(weddingId: string) {
   const totalPaid = v.reduce((s, x) => s + (x.paid_amount || 0), 0)
   const overduePayments = payments.filter(p => !p.paid_date && new Date(p.due_date + 'T00:00:00') < now)
   const budget = (wedding?.budget_total as number) || 0
+  const daysLeft = wedding?.wedding_date
+    ? Math.ceil((new Date(wedding.wedding_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
+    : null
 
   return `You are an AI assistant inside Creative Era OS, a professional event management platform.
+Today's date: ${today}
 Reply in the same language the user writes in. Hinglish (Hindi+English mix) is perfectly fine.
 Be brief and direct — 2-4 lines max unless a list is truly essential.
 No greetings, no filler, no explaining what you're about to do. Just the answer.
@@ -336,7 +340,7 @@ You have tools to take actions (update RSVP, mark tasks done, assign tasks, upda
 
 ━━━ WEDDING ━━━
 ${wedding?.bride_name} weds ${wedding?.groom_name}
-Date: ${wedding?.wedding_date ? fmtDate(wedding.wedding_date as string) : 'TBD'}${wedding?.date_from ? ` (${fmtDate(wedding.date_from as string)} – ${fmtDate((wedding.date_to || wedding.date_from) as string)})` : ''}
+Date: ${wedding?.wedding_date ? fmtDate(wedding.wedding_date as string) : 'TBD'}${daysLeft !== null ? ` (${daysLeft > 0 ? daysLeft + ' days to go' : daysLeft === 0 ? 'TODAY' : Math.abs(daysLeft) + ' days ago'})` : ''}${wedding?.date_from ? ` (${fmtDate(wedding.date_from as string)} – ${fmtDate((wedding.date_to || wedding.date_from) as string)})` : ''}
 Venue: ${wedding?.primary_venue || 'TBD'}, ${wedding?.primary_city || ''}
 Budget: ${fmt(budget)}
 
@@ -431,7 +435,12 @@ async function buildOrgEventContext(eventId: string) {
   const confirmedSpeakers = spk.filter(x => x.status === 'confirmed')
   const pendingSpeakers = spk.filter(x => x.status !== 'confirmed')
 
+  const daysUntil = event?.start_date
+    ? Math.ceil((new Date(event.start_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
+    : null
+
   return `You are an AI assistant inside Creative Era OS, a professional event management platform.
+Today's date: ${today}
 Reply in the same language the user writes in. Hinglish (Hindi+English mix) is perfectly fine.
 Be brief and direct — 2-4 lines max unless a list is truly essential.
 No greetings, no filler, no explaining what you're about to do. Just the answer.
@@ -440,7 +449,7 @@ You have tools to take actions (mark tasks done, add tasks, update vendor status
 
 ━━━ EVENT ━━━
 ${event?.name || 'Unnamed Event'} [${typeLabel}]
-Dates: ${event?.start_date ? fmtDate(event.start_date as string) : 'TBD'}${event?.end_date && event.end_date !== event?.start_date ? ` – ${fmtDate(event.end_date as string)}` : ''}
+Dates: ${event?.start_date ? fmtDate(event.start_date as string) : 'TBD'}${event?.end_date && event.end_date !== event?.start_date ? ` – ${fmtDate(event.end_date as string)}` : ''}${daysUntil !== null ? ` (${daysUntil > 0 ? daysUntil + ' days to go' : daysUntil === 0 ? 'TODAY' : Math.abs(daysUntil) + ' days ago'})` : ''}
 Venue: ${event?.venue || 'TBD'}${event?.city ? ', ' + event.city : ''}
 Expected attendees: ${event?.expected_count || 'TBD'} | Status: ${event?.status || 'planning'}
 Budget: ${fmt(budget)}

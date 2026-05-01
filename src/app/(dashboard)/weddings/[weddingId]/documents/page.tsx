@@ -13,12 +13,12 @@ export default async function DocumentsPage({ params }: { params: Promise<{ wedd
   if (!wedding) redirect('/dashboard')
 
   const { data: docs } = await sc.from('documents')
-    .select('id, name, storage_path, mime_type, size_bytes, entity_type, entity_id, created_at')
+    .select('id, name, storage_path, mime_type, size_bytes, entity_type, entity_id, created_at, shared_with_client')
     .eq('wedding_id', weddingId)
     .order('created_at', { ascending: false })
 
   // Generate signed URLs
-  const docsWithUrls = await Promise.all((docs ?? []).map(async (doc: { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; entity_type: string; entity_id: string | null; created_at: string }) => {
+  const docsWithUrls = await Promise.all((docs ?? []).map(async (doc: { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; entity_type: string; entity_id: string | null; created_at: string; shared_with_client: boolean }) => {
     const { data: urlData } = await sc.storage.from('wedding-docs').createSignedUrl(doc.storage_path, 3600)
     return { ...doc, url: urlData?.signedUrl ?? null }
   }))

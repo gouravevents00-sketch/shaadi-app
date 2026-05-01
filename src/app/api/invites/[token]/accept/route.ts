@@ -23,24 +23,29 @@ export async function POST(
   const isClient = invite.role === 'client'
 
   if (!isClient) {
-    // Add user to company (coordinator/admin roles only)
-    await supabase.from('company_members').insert({
+    const knownRoles = ['owner','admin','project_head','coordinator','accounts','logistics','hospitality','fb_team','decor_team','creative','photography','view_only']
+    const companyRole = knownRoles.includes(invite.role) ? invite.role : 'coordinator'
+
+    // Add to company (skip if already member)
+    await supabase.from('company_members').upsert({
       company_id: invite.company_id,
       user_id: userId,
-      role: ['owner', 'admin', 'coordinator'].includes(invite.role) ? invite.role : 'coordinator',
-    })
+      role: companyRole,
+    }, { onConflict: 'company_id,user_id', ignoreDuplicates: true })
 
-    // Add wedding access if invite is wedding-specific
-    if (invite.wedding_id) {
-      const accessRole = ['coordinator', 'bride_family', 'groom_family', 'hospitality', 'logistics', 'fb_team', 'decor_team', 'photography'].includes(invite.role)
-        ? invite.role
-        : 'coordinator'
-      await supabase.from('wedding_access').insert({
-        wedding_id: invite.wedding_id,
+    // Add to event_team for event-specific invites
+    if (invite.wedding_id || invite.org_event_id) {
+      const eventRole = invite.event_role ?? companyRole
+      await supabase.from('event_team').upsert({
+        company_id: invite.company_id,
         user_id: userId,
-        role: accessRole,
-        side: invite.side || 'neutral',
-      })
+        wedding_id: invite.wedding_id ?? null,
+        org_event_id: invite.org_event_id ?? null,
+        role: eventRole,
+        is_freelancer: invite.is_freelancer ?? false,
+        expires_at: invite.expires_at ?? null,
+        added_by: invite.invited_by,
+      }, { onConflict: invite.wedding_id ? 'user_id,wedding_id' : 'user_id,org_event_id', ignoreDuplicates: true })
     }
   }
 
@@ -50,5 +55,10 @@ export async function POST(
     .update({ accepted_at: new Date().toISOString() })
     .eq('token', token)
 
-  return NextResponse.json({ success: true, role: invite.role, wedding_id: invite.wedding_id })
+  return NextResponse.json({
+    success: true,
+    role: invite.role,
+    wedding_id: invite.wedding_id,
+    org_event_id: invite.org_event_id,
+  })
 }

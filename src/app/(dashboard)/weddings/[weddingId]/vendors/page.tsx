@@ -10,6 +10,11 @@ export default async function VendorsPage({ params }: { params: Promise<{ weddin
 
   const sc = createServiceClient()
 
+  // Get role for amount visibility
+  const { data: membership } = await sc.from('company_members')
+    .select('role').eq('user_id', user.id).single()
+  const role = membership?.role ?? 'view_only'
+
   const vendorIds = (await sc.from('vendors').select('id').eq('wedding_id', weddingId)).data?.map((v: { id: string }) => v.id) ?? []
 
   const [{ data: vendors }, { data: payments }, { data: events }, { data: vendorEvents }] = await Promise.all([
@@ -31,6 +36,7 @@ export default async function VendorsPage({ params }: { params: Promise<{ weddin
   return (
     <VendorsClient
       weddingId={weddingId}
+      role={role}
       initialVendors={vendors ?? []}
       initialPayments={payments ?? []}
       initialEvents={(events ?? []) as { id: string; name: string; date: string }[]}

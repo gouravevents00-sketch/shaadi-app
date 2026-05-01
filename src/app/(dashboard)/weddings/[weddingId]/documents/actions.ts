@@ -56,7 +56,7 @@ export async function getDocuments(weddingId: string, entityType: string, entity
   if ('error' in r) return { error: r.error, docs: [] }
 
   const q = r.serviceClient.from('documents')
-    .select('id, name, storage_path, mime_type, size_bytes, created_at')
+    .select('id, name, storage_path, mime_type, size_bytes, created_at, shared_with_client')
     .eq('wedding_id', weddingId)
     .eq('entity_type', entityType)
     .order('created_at', { ascending: false })
@@ -68,13 +68,40 @@ export async function getDocuments(weddingId: string, entityType: string, entity
   if (error) return { error: error.message, docs: [] }
 
   // Generate signed URLs (valid 1 hour)
-  const docs = await Promise.all((data ?? []).map(async (doc: { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; created_at: string }) => {
+  const docs = await Promise.all((data ?? []).map(async (doc: { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; created_at: string; shared_with_client: boolean }) => {
     const { data: urlData } = await r.serviceClient.storage
       .from(BUCKET)
       .createSignedUrl(doc.storage_path, 3600)
     return { ...doc, url: urlData?.signedUrl ?? null }
   }))
 
+  return { docs, error: null }
+}
+
+export async function toggleDocumentClientVisibility(weddingId: string, docId: string, shared: boolean) {
+  const r = await getVerified()
+  if ('error' in r) return { error: r.error }
+  const { error } = await r.serviceClient.from('documents')
+    .update({ shared_with_client: shared })
+    .eq('id', docId)
+    .eq('wedding_id', weddingId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function getClientDocuments(weddingId: string) {
+  const sc = createServiceClient()
+  const { data, error } = await sc.from('documents')
+    .select('id, name, storage_path, mime_type, size_bytes, created_at, entity_type')
+    .eq('wedding_id', weddingId)
+    .eq('shared_with_client', true)
+    .order('created_at', { ascending: false })
+  if (error) return { error: error.message, docs: [] }
+
+  const docs = await Promise.all((data ?? []).map(async (doc: { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; created_at: string; entity_type: string }) => {
+    const { data: urlData } = await sc.storage.from(BUCKET).createSignedUrl(doc.storage_path, 3600)
+    return { ...doc, url: urlData?.signedUrl ?? null }
+  }))
   return { docs, error: null }
 }
 

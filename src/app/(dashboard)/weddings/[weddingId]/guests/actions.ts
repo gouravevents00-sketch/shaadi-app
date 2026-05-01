@@ -164,3 +164,16 @@ export async function deleteGuest(weddingId: string, guestId: string) {
   revalidatePath(`/weddings/${weddingId}/guests`)
   return { success: true }
 }
+
+export async function checkInGuest(weddingId: string, guestId: string, checkedIn: boolean) {
+  const result = await getVerifiedUser(weddingId)
+  if ('error' in result) return { error: result.error }
+
+  const { error } = await result.serviceClient
+    .from('guests')
+    .update({ checked_in_at: checkedIn ? new Date().toISOString() : null })
+    .eq('id', guestId)
+
+  if (error) return { error: error.message }
+  return { success: true }
+}

@@ -7,6 +7,8 @@ import {
   ShoppingBag, Armchair, Sparkles, Zap, Phone,
 } from 'lucide-react'
 import InviteClientPanel from './InviteClientPanel'
+import ImportPackWizard from './ImportPackWizard'
+import AiSetupWizard from './AiSetupWizard'
 
 const fmtDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 
@@ -171,6 +173,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
     { data: unbookedVendors },
     { data: staleEnquiredVendors },
     { count: budgetCatCount },
+    { data: allEvents },
   ] = await Promise.all([
     sc.from('weddings').select('*').eq('id', weddingId).single(),
     sc.from('checklist_items').select('id, title, category, status').eq('wedding_id', weddingId)
@@ -204,6 +207,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
       .eq('wedding_id', weddingId).eq('status', 'enquired').is('phone', null)
       .lt('created_at', ago3).limit(5),
     sc.from('budget_categories').select('*', { count: 'exact', head: true }).eq('wedding_id', weddingId),
+    sc.from('events').select('name').eq('wedding_id', weddingId).order('date'),
   ])
 
   const daysLeft = wedding?.wedding_date
@@ -260,14 +264,26 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
     <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6">
 
       {/* Wedding header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-stone-900">
-          {wedding?.bride_name}{wedding?.groom_name ? ` & ${wedding.groom_name}` : ''}
-        </h1>
-        <p className="text-stone-400 text-sm mt-0.5">
-          {[wedding?.primary_venue, wedding?.primary_city].filter(Boolean).join(', ')}
-          {wedding?.wedding_date && ` · ${new Date(wedding.wedding_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-stone-900">
+            {wedding?.bride_name}{wedding?.groom_name ? ` & ${wedding.groom_name}` : ''}
+          </h1>
+          <p className="text-stone-400 text-sm mt-0.5">
+            {[wedding?.primary_venue, wedding?.primary_city].filter(Boolean).join(', ')}
+            {wedding?.wedding_date && ` · ${new Date(wedding.wedding_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <AiSetupWizard
+            weddingId={weddingId}
+            weddingName={`${wedding?.bride_name ?? ''}${wedding?.groom_name ? ` & ${wedding.groom_name}` : ''}`}
+            ceremonies={(allEvents ?? []).map((e: { name: string }) => e.name)}
+            weddingDate={wedding?.wedding_date ?? null}
+            daysLeft={daysLeft}
+          />
+          <ImportPackWizard weddingId={weddingId} />
+        </div>
       </div>
 
       {/* ── NEXT ACTION CARD ──────────────────────────────────────────────────── */}

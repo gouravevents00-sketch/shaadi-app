@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, Plus, ArrowRight, Building2, Landmark, Users, HeartHandshake, AlertTriangle, Info, Sparkles } from 'lucide-react'
 import WeddingActions from './WeddingActions'
+import { Suspense } from 'react'
+import WelcomeScreen from './WelcomeScreen'
 
 type DigestAlert = { weddingId: string; weddingName: string; level: 'urgent' | 'warn' | 'info'; message: string; href: string }
 
@@ -157,18 +159,9 @@ export default async function DashboardPage() {
       )}
 
       {total === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-stone-200 rounded-xl">
-          <CalendarDays className="w-10 h-10 text-stone-300 mx-auto mb-3" />
-          <p className="text-stone-500 font-medium">No events yet</p>
-          <p className="text-stone-400 text-sm mt-1">Create your first event to get started</p>
-          {canCreate && (
-            <Button asChild className="mt-4 bg-stone-900 hover:bg-stone-800">
-              <Link href="/new">
-                <Plus className="w-4 h-4 mr-2" /> Create event
-              </Link>
-            </Button>
-          )}
-        </div>
+        <Suspense fallback={null}>
+          <WelcomeScreen canCreate={canCreate} />
+        </Suspense>
       ) : (
         <div className="space-y-8">
           {/* ── Weddings ──────────────────────────────────────── */}

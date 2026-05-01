@@ -11,6 +11,7 @@ import {
   Megaphone, ShoppingBag, Eye, EyeOff, UserCircle, BookTemplate, BarChart2,
   Mic, ListChecks, LayoutGrid, Sun, Music, Handshake, UserCheck, BedDouble,
   Trophy, Zap, FileText, MessageSquare, Store, Inbox, Sparkles, Heart, MapPin, Gift,
+  UsersRound,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -29,32 +30,56 @@ interface NavProps {
 }
 
 // ── Agency nav ────────────────────────────────────────────────
+// Role → which wedding nav slugs are visible (owner/admin/project_head see all)
+const WEDDING_NAV_RBAC: Record<string, string[]> = {
+  coordinator:  ['overview','events','guests','vendors','budget','rooms','day','checklist','comms','documents','deliverables','client','team'],
+  accounts:     ['overview','budget','vendors','team'],
+  logistics:    ['overview','day','rooms','vendors','checklist','team'],
+  hospitality:  ['overview','guests','rooms','comms','team'],
+  fb_team:      ['overview','checklist','vendors','comms','team'],
+  decor_team:   ['overview','checklist','vendors','documents','team'],
+  creative:     ['overview','documents','deliverables','team'],
+  photography:  ['overview','deliverables','documents','team'],
+  view_only:    ['overview','events','guests','vendors','budget','rooms','day','checklist','comms','documents','deliverables','team'],
+}
+
+const FULL_ACCESS_ROLES = ['owner', 'admin', 'project_head']
+
+function filterByRole<T extends { href: string }>(items: T[], role: string): T[] {
+  if (FULL_ACCESS_ROLES.includes(role)) return items
+  const allowed = WEDDING_NAV_RBAC[role]
+  if (!allowed) return items
+  return items.filter(item => allowed.some(slug => item.href.endsWith('/' + slug)))
+}
+
 const agencyMainNav = [
   { href: '/dashboard',           label: 'All Events',  icon: LayoutDashboard },
+  { href: '/dashboard/team',      label: 'Team',        icon: UsersRound },
   { href: '/dashboard/templates', label: 'Templates',   icon: BookTemplate },
   { href: '/marketplace',         label: 'Marketplace', icon: Store },
   { href: '/leads',               label: 'Leads',       icon: Inbox },
 ]
 
 const agencyWeddingNav = (id: string) => [
-  { href: `/weddings/${id}/overview`,  label: 'Overview',    icon: LayoutDashboard },
-  { href: `/weddings/${id}/events`,    label: 'Ceremonies',  icon: CalendarDays },
-  { href: `/weddings/${id}/guests`,    label: 'Guests',      icon: Users },
-  { href: `/weddings/${id}/vendors`,   label: 'Vendors',     icon: ShoppingBag },
-  { href: `/weddings/${id}/budget`,    label: 'Finance',     icon: Wallet },
-  { href: `/weddings/${id}/rooms`,     label: 'Rooms',       icon: BedDouble },
-  { href: `/weddings/${id}/seating`,   label: 'Seating',     icon: LayoutGrid },
-  { href: `/weddings/${id}/day`,       label: 'Ground Control', icon: Sun },
-  { href: `/weddings/${id}/checklist`, label: 'Checklist',   icon: CheckSquare },
-  { href: `/weddings/${id}/comms`,     label: 'Comms',       icon: Megaphone },
-  { href: `/weddings/${id}/documents`,    label: 'Documents',    icon: FileText },
-  { href: `/weddings/${id}/deliverables`, label: 'Deliverables', icon: Gift },
-  { href: `/weddings/${id}/client`,       label: 'Client Portal', icon: UserCircle },
+  { href: `/weddings/${id}/overview`,     label: 'Overview',       icon: LayoutDashboard },
+  { href: `/weddings/${id}/team`,         label: 'Team',           icon: UsersRound },
+  { href: `/weddings/${id}/events`,       label: 'Ceremonies',     icon: CalendarDays },
+  { href: `/weddings/${id}/guests`,       label: 'Guests',         icon: Users },
+  { href: `/weddings/${id}/vendors`,      label: 'Vendors',        icon: ShoppingBag },
+  { href: `/weddings/${id}/budget`,       label: 'Finance',        icon: Wallet },
+  { href: `/weddings/${id}/rooms`,        label: 'Rooms',          icon: BedDouble },
+  { href: `/weddings/${id}/day`,          label: 'Ground Control', icon: Sun },
+  { href: `/weddings/${id}/checklist`,    label: 'Checklist',      icon: CheckSquare },
+  { href: `/weddings/${id}/comms`,        label: 'Comms',          icon: Megaphone },
+  { href: `/weddings/${id}/documents`,    label: 'Documents',      icon: FileText },
+  { href: `/weddings/${id}/deliverables`, label: 'Deliverables',   icon: Gift },
+  { href: `/weddings/${id}/client`,       label: 'Client Portal',  icon: UserCircle },
 ]
 
-// All possible org-event nav items keyed by slug
+// All possible org-event nav items keyed by slug (team always included)
 const ORG_NAV_ALL = (id: string) => [
-  { key: 'live',          href: `/org-events/${id}/live`,          label: 'Live Dashboard', icon: Zap          },
+  { key: 'team',         href: `/org-events/${id}/team`,          label: 'Team',           icon: UsersRound   },
+  { key: 'live',         href: `/org-events/${id}/live`,          label: 'Live Dashboard', icon: Zap          },
   { key: 'overview',      href: `/org-events/${id}/overview`,      label: 'Overview',       icon: LayoutDashboard },
   { key: 'agenda',        href: `/org-events/${id}/agenda`,        label: 'Agenda',         icon: CalendarDays },
   { key: 'speakers',      href: `/org-events/${id}/speakers`,      label: 'Speakers',       icon: Mic          },
@@ -74,14 +99,14 @@ const ORG_NAV_ALL = (id: string) => [
 
 // Modules shown per sub_type (always includes: live, overview, vendors, budget, checklist, reports, comms)
 const ORG_NAV_KEYS: Record<string, string[]> = {
-  conference:        ['live','overview','agenda','speakers','delegates','guests','accommodation','sponsors','timeline','vendors','budget','checklist','reports','comms'],
-  award_ceremony:    ['live','overview','agenda','guests','sponsors','timeline','vendors','budget','checklist','reports','comms'],
-  product_launch:    ['live','overview','agenda','guests','timeline','vendors','budget','checklist','reports','comms'],
-  corporate_dinner:  ['live','overview','agenda','guests','accommodation','timeline','vendors','budget','checklist','reports','comms'],
-  agm:               ['live','overview','agenda','delegates','timeline','vendors','budget','checklist','reports','comms'],
+  conference:        ['live','overview','agenda','speakers','delegates','guests','artists','volunteers','accommodation','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  award_ceremony:    ['live','overview','agenda','guests','artists','volunteers','sponsors','timeline','vendors','budget','checklist','reports','comms'],
+  product_launch:    ['live','overview','agenda','guests','artists','volunteers','timeline','vendors','budget','checklist','reports','comms'],
+  corporate_dinner:  ['live','overview','agenda','guests','artists','volunteers','accommodation','timeline','vendors','budget','checklist','reports','comms'],
+  agm:               ['live','overview','agenda','delegates','artists','volunteers','timeline','vendors','budget','checklist','reports','comms'],
   team_building:     ['live','overview','accommodation','volunteers','timeline','vendors','budget','checklist','reports','comms'],
   trade_fair:        ['live','overview','agenda','delegates','guests','sponsors','vendors','budget','checklist','reports','comms'],
-  state_function:    ['live','overview','agenda','guests','accommodation','timeline','vendors','budget','checklist','reports','comms'],
+  state_function:    ['live','overview','agenda','guests','artists','volunteers','accommodation','timeline','vendors','budget','checklist','reports','comms'],
   inauguration:      ['live','overview','agenda','guests','timeline','vendors','budget','checklist','reports','comms'],
   republic_day:      ['live','overview','agenda','guests','volunteers','timeline','vendors','budget','checklist','reports','comms'],
   felicitation:      ['live','overview','agenda','guests','timeline','vendors','budget','checklist','reports','comms'],
@@ -103,7 +128,8 @@ const ORG_NAV_KEYS: Record<string, string[]> = {
 
 function orgEventNav(id: string, subType: string | null) {
   const keys = ORG_NAV_KEYS[subType ?? ''] ?? ORG_NAV_KEYS['_default']
-  return ORG_NAV_ALL(id).filter(item => keys.includes(item.key))
+  // 'team' is always shown
+  return ORG_NAV_ALL(id).filter(item => item.key === 'team' || keys.includes(item.key))
 }
 
 // ── Self-planner nav ─────────────────────────────────────────
@@ -115,7 +141,6 @@ const selfPlannerNav = (id: string) => [
   { href: `/weddings/${id}/budget`,    label: 'Budget',         icon: Wallet },
   { href: `/weddings/${id}/checklist`, label: 'To-Do List',     icon: CheckSquare },
   { href: `/weddings/${id}/rooms`,     label: 'Rooms',          icon: BedDouble },
-  { href: `/weddings/${id}/seating`,   label: 'Seating',        icon: LayoutGrid },
   { href: `/weddings/${id}/comms`,     label: 'Message Guests', icon: Megaphone },
 ]
 
@@ -266,7 +291,7 @@ export default function DashboardNav({ user, company, role, isPersonal, personal
             <div className="pt-4 pb-1 px-3">
               <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">This Wedding</p>
             </div>
-            {agencyWeddingNav(weddingId).map(item => <NavItem key={item.href} {...item} onClick={onNavigate} />)}
+            {filterByRole(agencyWeddingNav(weddingId), role ?? 'coordinator').map(item => <NavItem key={item.href} {...item} onClick={onNavigate} />)}
           </>
         )}
 
