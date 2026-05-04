@@ -21,7 +21,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ weddin
     { data: checklist },
   ] = await Promise.all([
     sc.from('weddings').select('bride_name, groom_name, wedding_date, primary_venue, primary_city, budget_total').eq('id', weddingId).single(),
-    sc.from('guests').select('id, name, phone, email, side, is_vip, dietary, dietary_notes, plus_count, rsvp_submitted_at, needs_pickup, arrival_mode, arrival_date, departure_date, notes').eq('wedding_id', weddingId).order('name'),
+    sc.from('guests').select('id, name, phone, email, side, is_vip, dietary, dietary_notes, plus_count, rsvp_submitted_at, needs_pickup, arrival_mode, notes').eq('wedding_id', weddingId).order('name'),
     sc.from('guest_events').select('guest_id, event_id, rsvp_status').in('event_id',
       (await sc.from('events').select('id').eq('wedding_id', weddingId)).data?.map((e: { id: string }) => e.id) ?? []
     ),

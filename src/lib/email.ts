@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY ?? 'missing_key')
 const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@creativeeraos.com'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shaadi-app-eight.vercel.app'
 const NOTIFY_TO = process.env.NOTIFY_EMAIL || FROM
@@ -31,13 +31,13 @@ export async function sendLeadNotification({
   const color = type === 'agency_demo' ? '#1e40af' : '#9f1239'
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: [NOTIFY_TO],
     subject,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1c1917">
         <div style="background:${color};padding:20px 28px;border-radius:12px 12px 0 0">
-          <p style="color:#fff;margin:0;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7">Creative Era OS</p>
+          <p style="color:#fff;margin:0;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7">UtsavOS</p>
           <h1 style="color:#fff;margin:6px 0 0;font-size:20px;font-weight:700">${label}</h1>
         </div>
         <div style="background:#fff;border:1px solid #e7e5e4;border-top:none;border-radius:0 0 12px 12px;padding:24px 28px">
@@ -74,18 +74,18 @@ export async function sendNewLeadEmail({
   if (!process.env.RESEND_API_KEY || !toEmails.length) return
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: toEmails,
     subject: `New lead: ${celebrationName}`,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1c1917">
         <div style="background:#9f1239;padding:24px 32px;border-radius:12px 12px 0 0">
-          <p style="color:#fda4af;margin:0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Creative Era OS</p>
+          <p style="color:#fda4af;margin:0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">UtsavOS</p>
           <h1 style="color:#fff;margin:8px 0 0;font-size:22px;font-weight:700">New lead request</h1>
         </div>
         <div style="background:#fff;border:1px solid #e7e5e4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px">
           <p style="margin:0 0 20px;font-size:15px;color:#44403c">
-            A client wants to connect with <strong>${companyName}</strong> on Creative Era OS.
+            A client wants to connect with <strong>${companyName}</strong> on UtsavOS.
           </p>
           <table style="width:100%;border-collapse:collapse;background:#f5f5f4;border-radius:8px;overflow:hidden;font-size:14px">
             <tr><td style="padding:10px 16px;color:#78716c;width:40%">Event</td><td style="padding:10px 16px;font-weight:600;color:#1c1917">${celebrationName}</td></tr>
@@ -122,13 +122,13 @@ export async function sendLeadAcceptedEmail({
   const inviteUrl = `${APP_URL}/invite/${inviteToken}`
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: [toEmail],
     subject: `${companyName} accepted your request!`,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1c1917">
         <div style="background:#9f1239;padding:24px 32px;border-radius:12px 12px 0 0">
-          <p style="color:#fda4af;margin:0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Creative Era OS</p>
+          <p style="color:#fda4af;margin:0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">UtsavOS</p>
           <h1 style="color:#fff;margin:8px 0 0;font-size:22px;font-weight:700">You're connected! 🎉</h1>
         </div>
         <div style="background:#fff;border:1px solid #e7e5e4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px">
@@ -168,7 +168,7 @@ export async function sendRsvpNotification({
   const color = attending ? '#059669' : '#dc2626'
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: [NOTIFY_TO],
     subject: `RSVP: ${guestName} — ${attending ? 'attending' : 'not attending'} · ${weddingName}`,
     html: `
@@ -203,7 +203,7 @@ export async function sendPreferencesSavedNotification({
   if (!process.env.RESEND_API_KEY) return
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: [NOTIFY_TO],
     subject: `Preferences updated · ${weddingName}`,
     html: `
@@ -240,7 +240,7 @@ export async function sendApprovalResponseNotification({
   const color = status === 'approved' ? '#059669' : status === 'rejected' ? '#dc2626' : '#d97706'
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: [NOTIFY_TO],
     subject: `Approval ${status}: "${itemTitle}" · ${weddingName}`,
     html: `
@@ -276,13 +276,13 @@ export async function sendLeadDeclinedEmail({
   if (!process.env.RESEND_API_KEY) return
 
   await resend.emails.send({
-    from: `Creative Era OS <${FROM}>`,
+    from: `UtsavOS <${FROM}>`,
     to: [toEmail],
     subject: `Update on your request to ${companyName}`,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1c1917">
         <div style="background:#78716c;padding:24px 32px;border-radius:12px 12px 0 0">
-          <p style="color:#e7e5e4;margin:0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Creative Era OS</p>
+          <p style="color:#e7e5e4;margin:0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">UtsavOS</p>
           <h1 style="color:#fff;margin:8px 0 0;font-size:22px;font-weight:700">Planner update</h1>
         </div>
         <div style="background:#fff;border:1px solid #e7e5e4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px">
@@ -290,7 +290,7 @@ export async function sendLeadDeclinedEmail({
             Unfortunately, <strong>${companyName}</strong> is unable to take on <strong>${celebrationName}</strong> at this time.
           </p>
           <p style="margin:0 0 24px;font-size:14px;color:#78716c">
-            Don't worry — you can connect with another planner on Creative Era OS.
+            Don't worry — you can connect with another planner on UtsavOS.
           </p>
           <a href="${APP_URL}/celebrate" style="display:inline-block;background:#1c1917;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600">
             Find another planner →

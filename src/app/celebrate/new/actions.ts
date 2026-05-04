@@ -2,160 +2,149 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 
-export type CelebrationPayload = {
-  userId: string
-  type: string
+export type FunctionEntry = {
   name: string
-  eventDate?: string
+  date: string
+  start_time?: string
+  end_time?: string
+  venue_space?: string
+}
+
+export type MasterFormPayload = {
+  userId: string
+  brideName: string
+  groomName: string
+  weddingStyle: string
+  startDate: string
+  endDate: string
+  functions: FunctionEntry[]
+  guestCountPerDay: Record<string, number>  // { '2026-06-27': 300, '2026-06-28': 250 }
+  requirements: string[]
   venue?: string
   city?: string
-  guestCount?: number
-  budget?: number
+  managedBy: 'self' | 'agency' | 'marketplace'
 }
 
-const CELEBRATION_TASKS: Record<string, { title: string; category: string }[]> = {
-  wedding: [
-    { title: 'Book main venue', category: 'Venue' },
-    { title: 'Finalize catering menu', category: 'Catering' },
-    { title: 'Book photographer & videographer', category: 'Photography' },
-    { title: 'Send wedding invites', category: 'Invites' },
-    { title: 'Book bridal makeup artist', category: 'Bridal' },
-    { title: 'Confirm decorator / florist', category: 'Decor' },
-    { title: 'Book DJ / music band', category: 'Entertainment' },
-    { title: 'Arrange guest accommodation', category: 'Logistics' },
-    { title: 'Finalize bridal outfit', category: 'Bridal' },
-    { title: 'Book pandit / priest', category: 'Rituals' },
-    { title: 'Confirm transport & cars', category: 'Logistics' },
-    { title: 'Order wedding cake', category: 'Catering' },
-    { title: 'Send thank-you gifts', category: 'Post Wedding' },
+// Tasks auto-seeded per function name
+const FUNCTION_TASKS: Record<string, { title: string; category: string }[]> = {
+  Haldi: [
+    { title: 'Arrange haldi & rose water for ceremony', category: 'Haldi' },
+    { title: 'Book décor for haldi setup (marigold/yellow theme)', category: 'Haldi' },
+    { title: 'Confirm outfits for haldi (bride & family)', category: 'Haldi' },
+    { title: 'Arrange dhol / folk music for haldi', category: 'Haldi' },
   ],
-  sagai: [
-    { title: 'Book venue / banquet hall', category: 'Venue' },
-    { title: 'Finalize catering menu', category: 'Catering' },
-    { title: 'Book photographer', category: 'Photography' },
-    { title: 'Send engagement invites', category: 'Invites' },
-    { title: 'Choose outfit for ceremony', category: 'Outfit' },
-    { title: 'Arrange ring exchange ceremony', category: 'Ritual' },
-    { title: 'Plan ring design / purchase', category: 'Jewelry' },
-    { title: 'Organize ring ceremony gifts', category: 'Gifts' },
+  Mehandi: [
+    { title: 'Book mehandi artist(s)', category: 'Mehandi' },
+    { title: 'Confirm number of ladies for mehandi', category: 'Mehandi' },
+    { title: 'Arrange seating area for mehandi', category: 'Mehandi' },
+    { title: 'Plan snacks & refreshments during mehandi', category: 'Mehandi' },
   ],
-  namkaran: [
-    { title: 'Book pandit / priest', category: 'Ritual' },
-    { title: 'Finalize venue (home or hall)', category: 'Venue' },
-    { title: 'Arrange puja samagri', category: 'Ritual' },
-    { title: 'Plan catering / prasad', category: 'Catering' },
-    { title: 'Send invites to family & friends', category: 'Invites' },
-    { title: 'Prepare baby\'s outfit for ceremony', category: 'Baby' },
-    { title: 'Arrange flowers & decoration', category: 'Decor' },
-    { title: 'Plan gifts for baby', category: 'Gifts' },
+  Sagai: [
+    { title: 'Finalise rings / exchange items', category: 'Sagai' },
+    { title: 'Book pandit for ring ceremony rituals', category: 'Sagai' },
+    { title: 'Arrange thaali & puja items for sagai', category: 'Sagai' },
+    { title: 'Confirm outfits for sagai', category: 'Sagai' },
   ],
-  griha_pravesh: [
-    { title: 'Fix muhurat date with pandit', category: 'Ritual' },
-    { title: 'Book pandit for puja', category: 'Ritual' },
-    { title: 'Arrange puja samagri', category: 'Ritual' },
-    { title: 'Plan catering for guests', category: 'Catering' },
-    { title: 'Send invites', category: 'Invites' },
-    { title: 'Prepare house for entry', category: 'House' },
-    { title: 'Arrange flowers for entrance', category: 'Decor' },
-    { title: 'Organize return gifts', category: 'Gifts' },
+  Sangeet: [
+    { title: 'Plan performances & acts for sangeet', category: 'Sangeet' },
+    { title: 'Book DJ / live music for sangeet', category: 'Sangeet' },
+    { title: 'Arrange choreographer if needed', category: 'Sangeet' },
+    { title: 'Plan theme & décor for sangeet', category: 'Sangeet' },
+    { title: 'Confirm outfits for family performances', category: 'Sangeet' },
   ],
-  godh_bharai: [
-    { title: 'Book venue', category: 'Venue' },
-    { title: 'Arrange catering / snacks', category: 'Catering' },
-    { title: 'Plan decoration (pink/blue theme)', category: 'Decor' },
-    { title: 'Book photographer', category: 'Photography' },
-    { title: 'Send baby shower invites', category: 'Invites' },
-    { title: 'Plan baby shower games', category: 'Entertainment' },
-    { title: 'Arrange gifts for mom-to-be', category: 'Gifts' },
-    { title: 'Order themed cake', category: 'Catering' },
+  Mayra: [
+    { title: 'Coordinate with mama ji for mayra rituals', category: 'Mayra' },
+    { title: 'Arrange puja items for mayra', category: 'Mayra' },
+    { title: 'Plan gifts from mama ji side', category: 'Mayra' },
   ],
-  birthday: [
-    { title: 'Book venue (home / hall / restaurant)', category: 'Venue' },
-    { title: 'Finalize guest list', category: 'Guests' },
-    { title: 'Send invites (digital or physical)', category: 'Invites' },
-    { title: 'Order birthday cake', category: 'Catering' },
-    { title: 'Plan decoration & theme', category: 'Decor' },
-    { title: 'Arrange catering / food', category: 'Catering' },
-    { title: 'Plan entertainment / games', category: 'Entertainment' },
-    { title: 'Arrange return gifts for kids', category: 'Gifts' },
-    { title: 'Book photographer', category: 'Photography' },
+  Tilak: [
+    { title: 'Arrange puja thali for tilak ceremony', category: 'Tilak' },
+    { title: 'Confirm groom-side family for tilak', category: 'Tilak' },
+    { title: 'Plan gifts exchange during tilak', category: 'Tilak' },
   ],
-  anniversary: [
-    { title: 'Choose celebration type (intimate / party)', category: 'Planning' },
-    { title: 'Book restaurant or venue', category: 'Venue' },
-    { title: 'Plan surprise element', category: 'Planning' },
-    { title: 'Arrange flowers & decoration', category: 'Decor' },
-    { title: 'Book photographer / videographer', category: 'Photography' },
-    { title: 'Order anniversary cake', category: 'Catering' },
-    { title: 'Send invites if hosting guests', category: 'Invites' },
-    { title: 'Plan gift for spouse', category: 'Gifts' },
+  Baraat: [
+    { title: 'Book ghodi (mare) for baraat', category: 'Baraat' },
+    { title: 'Arrange dhol waale for baraat', category: 'Baraat' },
+    { title: 'Confirm baraat route & timing with venue', category: 'Baraat' },
+    { title: 'Arrange flowers / phool for groom sehra', category: 'Baraat' },
+    { title: 'Book band / brass party for baraat', category: 'Baraat' },
   ],
-  mundan: [
-    { title: 'Book barber / salon for ceremony', category: 'Ritual' },
-    { title: 'Fix auspicious date with pandit', category: 'Ritual' },
-    { title: 'Book pandit for puja', category: 'Ritual' },
-    { title: 'Finalize venue', category: 'Venue' },
-    { title: 'Arrange puja samagri', category: 'Ritual' },
-    { title: 'Plan catering for guests', category: 'Catering' },
-    { title: 'Send invites', category: 'Invites' },
-    { title: 'Prepare baby outfit', category: 'Baby' },
+  Pheras: [
+    { title: 'Book pandit / purohit for pheras', category: 'Pheras' },
+    { title: 'Arrange mandap setup', category: 'Pheras' },
+    { title: 'Confirm puja samagri list with pandit', category: 'Pheras' },
+    { title: 'Arrange agni kund / hawan kund', category: 'Pheras' },
   ],
-  sangeet: [
-    { title: 'Book venue', category: 'Venue' },
-    { title: 'Plan performances & acts', category: 'Entertainment' },
-    { title: 'Book DJ or live music', category: 'Entertainment' },
-    { title: 'Arrange choreographer if needed', category: 'Entertainment' },
-    { title: 'Finalize catering menu', category: 'Catering' },
-    { title: 'Book photographer / videographer', category: 'Photography' },
-    { title: 'Plan decoration / theme', category: 'Decor' },
-    { title: 'Send invites', category: 'Invites' },
-    { title: 'Plan outfits for family performances', category: 'Outfit' },
+  Vidaai: [
+    { title: 'Plan vidaai ceremony (doli / car)', category: 'Vidaai' },
+    { title: 'Arrange rice for bride to throw at vidaai', category: 'Vidaai' },
+    { title: 'Plan bride side farewell gifts', category: 'Vidaai' },
   ],
-  puja: [
-    { title: 'Book pandit / priest', category: 'Ritual' },
-    { title: 'Fix muhurat / auspicious timing', category: 'Ritual' },
-    { title: 'Arrange puja samagri & thali', category: 'Ritual' },
-    { title: 'Plan prasad distribution', category: 'Catering' },
-    { title: 'Invite family & neighbors', category: 'Invites' },
-    { title: 'Arrange flowers for decoration', category: 'Decor' },
-    { title: 'Prepare bhog / prasad food', category: 'Catering' },
+  Reception: [
+    { title: 'Confirm reception venue & layout', category: 'Reception' },
+    { title: 'Book DJ / band for reception', category: 'Reception' },
+    { title: 'Plan stage setup for couple', category: 'Reception' },
+    { title: 'Arrange welcome drinks & canapes', category: 'Reception' },
+    { title: 'Book photographer for reception portraits', category: 'Reception' },
   ],
-  graduation: [
-    { title: 'Book venue / restaurant', category: 'Venue' },
-    { title: 'Send invites to family & friends', category: 'Invites' },
-    { title: 'Plan catering / food', category: 'Catering' },
-    { title: 'Order celebration cake', category: 'Catering' },
-    { title: 'Arrange decoration', category: 'Decor' },
-    { title: 'Plan gifts & memories book', category: 'Gifts' },
-    { title: 'Book photographer', category: 'Photography' },
+  Cocktail: [
+    { title: 'Plan cocktail menu & bar setup', category: 'Cocktail' },
+    { title: 'Book bartenders', category: 'Cocktail' },
+    { title: 'Arrange lounge seating & décor', category: 'Cocktail' },
+  ],
+  Hawan: [
+    { title: 'Book pandit for hawan', category: 'Hawan' },
+    { title: 'Arrange hawan samagri', category: 'Hawan' },
+    { title: 'Confirm timing & space for hawan kund', category: 'Hawan' },
   ],
 }
 
-// Default tasks for types not explicitly listed
-const DEFAULT_TASKS = [
-  { title: 'Book venue', category: 'Venue' },
-  { title: 'Finalize guest list', category: 'Guests' },
-  { title: 'Send invites', category: 'Invites' },
-  { title: 'Arrange catering', category: 'Catering' },
-  { title: 'Plan decoration', category: 'Decor' },
-  { title: 'Book photographer', category: 'Photography' },
-  { title: 'Arrange logistics & transport', category: 'Logistics' },
+// Common tasks always included
+const COMMON_TASKS = [
+  { title: 'Book photographer & videographer', category: 'Photography' },
+  { title: 'Finalize catering menu for all functions', category: 'Catering' },
+  { title: 'Confirm main venue booking', category: 'Venue' },
+  { title: 'Send wedding invitations (digital & physical)', category: 'Invites' },
+  { title: 'Book bridal makeup artist', category: 'Bridal' },
+  { title: 'Arrange guest accommodation', category: 'Logistics' },
+  { title: 'Confirm transport & cars for wedding days', category: 'Logistics' },
+  { title: 'Finalize outfits for all functions', category: 'Bridal' },
+  { title: 'Order return gifts for guests', category: 'Gifts' },
+  { title: 'Confirm décor / florist', category: 'Decor' },
 ]
 
-export async function createCelebration(payload: CelebrationPayload) {
+export async function createCelebration(payload: MasterFormPayload) {
   const sc = createServiceClient()
 
+  const totalGuests = Math.max(
+    ...Object.values(payload.guestCountPerDay),
+    0
+  )
+
+  const celebrationName = payload.brideName && payload.groomName
+    ? `${payload.brideName} & ${payload.groomName}`
+    : payload.brideName || payload.groomName || 'My Wedding'
+
+  // 1. Insert celebration
   const { data: celebration, error } = await sc
     .from('celebrations')
     .insert({
       user_id: payload.userId,
-      type: payload.type,
-      name: payload.name,
-      event_date: payload.eventDate || null,
+      type: 'wedding',
+      name: celebrationName,
+      bride_name: payload.brideName || null,
+      groom_name: payload.groomName || null,
+      event_date: payload.startDate || null,
+      end_date: payload.endDate || null,
+      wedding_style: payload.weddingStyle || null,
       venue: payload.venue || null,
       city: payload.city || null,
-      guest_count: payload.guestCount || 0,
-      budget: payload.budget || 0,
+      guest_count: totalGuests,
+      guest_count_per_day: payload.guestCountPerDay,
+      requirements: payload.requirements,
+      managed_by: payload.managedBy,
+      onboarding_done: true,
+      budget: 0,
     })
     .select('id')
     .single()
@@ -164,16 +153,49 @@ export async function createCelebration(payload: CelebrationPayload) {
     return { error: error?.message || 'Failed to create celebration' }
   }
 
-  // Insert default tasks
-  const tasks = CELEBRATION_TASKS[payload.type] || DEFAULT_TASKS
-  await sc.from('celebration_tasks').insert(
-    tasks.map(t => ({
-      celebration_id: celebration.id,
-      title: t.title,
-      category: t.category,
-      ai_generated: true,
-    }))
-  )
+  const celebrationId = celebration.id
 
-  return { id: celebration.id }
+  // 2. Insert functions
+  if (payload.functions.length > 0) {
+    await sc.from('celebration_functions').insert(
+      payload.functions.map((fn, i) => ({
+        celebration_id: celebrationId,
+        name: fn.name,
+        date: fn.date,
+        start_time: fn.start_time || null,
+        end_time: fn.end_time || null,
+        venue_space: fn.venue_space || null,
+        sort_order: i,
+      }))
+    )
+  }
+
+  // 3. Seed tasks from functions + common tasks
+  const taskSet = new Map<string, { title: string; category: string }>()
+
+  // Per-function tasks
+  for (const fn of payload.functions) {
+    const fnTasks = FUNCTION_TASKS[fn.name] || []
+    for (const t of fnTasks) {
+      taskSet.set(t.title, t)
+    }
+  }
+
+  // Common tasks
+  for (const t of COMMON_TASKS) {
+    taskSet.set(t.title, t)
+  }
+
+  const tasksToInsert = Array.from(taskSet.values()).map(t => ({
+    celebration_id: celebrationId,
+    title: t.title,
+    category: t.category,
+    ai_generated: true,
+  }))
+
+  if (tasksToInsert.length > 0) {
+    await sc.from('celebration_tasks').insert(tasksToInsert)
+  }
+
+  return { id: celebrationId, managedBy: payload.managedBy }
 }

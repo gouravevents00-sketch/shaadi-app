@@ -127,6 +127,50 @@ export async function markKitGiven(weddingId: string, allocationId: string, give
   return { success: true }
 }
 
+export async function markIdCollected(weddingId: string, allocationId: string, collected: boolean) {
+  const result = await getVerifiedUser(weddingId)
+  if ('error' in result) return { error: result.error }
+  const { error } = await result.serviceClient
+    .from('room_allocations')
+    .update({ id_collected: collected, id_collected_at: collected ? new Date().toISOString() : null })
+    .eq('id', allocationId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function markKeyIssued(weddingId: string, allocationId: string, issued: boolean) {
+  const result = await getVerifiedUser(weddingId)
+  if ('error' in result) return { error: result.error }
+  const { error } = await result.serviceClient
+    .from('room_allocations')
+    .update({ key_issued: issued, key_issued_at: issued ? new Date().toISOString() : null })
+    .eq('id', allocationId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function markWelcomeKit(weddingId: string, allocationId: string, given: boolean) {
+  const result = await getVerifiedUser(weddingId)
+  if ('error' in result) return { error: result.error }
+  const { error } = await result.serviceClient
+    .from('room_allocations')
+    .update({ welcome_kit: given, welcome_kit_at: given ? new Date().toISOString() : null })
+    .eq('id', allocationId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function markRoomCheckin(weddingId: string, allocationId: string, checkedIn: boolean) {
+  const result = await getVerifiedUser(weddingId)
+  if ('error' in result) return { error: result.error }
+  const { error } = await result.serviceClient
+    .from('room_allocations')
+    .update({ checked_in_at: checkedIn ? new Date().toISOString() : null })
+    .eq('id', allocationId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
 // ─── Floor maps ───────────────────────────────────────────────────
 
 export async function saveRoomMap(weddingId: string, label: string, mapData: string) {

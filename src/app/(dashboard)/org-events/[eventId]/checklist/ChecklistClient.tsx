@@ -128,7 +128,7 @@ export default function ChecklistClient({
   const progress = items.length ? Math.round((done / items.length) * 100) : 0
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import EventTeamTab from '@/components/shared/EventTeamTab'
+import TeamPageWrapper from './TeamPageWrapper'
 
 export default async function WeddingTeamPage({ params }: { params: Promise<{ weddingId: string }> }) {
   const { weddingId } = await params
@@ -15,9 +15,8 @@ export default async function WeddingTeamPage({ params }: { params: Promise<{ we
 
   const companyId = membership.company_id
 
-  const { data: wedding } = await sc.from('weddings').select('wedding_date').eq('id', weddingId).single()
-
-  const [{ data: allMembers }, { data: teamRows }] = await Promise.all([
+  const [{ data: wedding }, { data: allMembers }, { data: teamRows }, { data: staffTasks }, { data: events }] = await Promise.all([
+    sc.from('weddings').select('wedding_date').eq('id', weddingId).single(),
     sc.from('company_members')
       .select('id, role, users(id, name, email, avatar_url)')
       .eq('company_id', companyId),
@@ -25,6 +24,11 @@ export default async function WeddingTeamPage({ params }: { params: Promise<{ we
       .select('id, user_id, role, is_project_head, is_freelancer, users(name, email, avatar_url)')
       .eq('wedding_id', weddingId)
       .eq('company_id', companyId),
+    sc.from('staff_tasks')
+      .select('*')
+      .eq('wedding_id', weddingId)
+      .order('created_at', { ascending: false }),
+    sc.from('events').select('id, name, date').eq('wedding_id', weddingId).order('date'),
   ])
 
   const companyMembers = (allMembers ?? []).map((m: {
@@ -54,15 +58,16 @@ export default async function WeddingTeamPage({ params }: { params: Promise<{ we
   }))
 
   return (
-    <EventTeamTab
+    <TeamPageWrapper
       weddingId={weddingId}
-      orgEventId={null}
       eventDate={wedding?.wedding_date ?? null}
       companyMembers={companyMembers}
       teamMembers={teamMembers}
       myRole={membership.role}
       companyId={companyId}
       appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ''}
+      staffTasks={(staffTasks ?? []) as never}
+      events={(events ?? []) as { id: string; name: string; date: string }[]}
     />
   )
 }

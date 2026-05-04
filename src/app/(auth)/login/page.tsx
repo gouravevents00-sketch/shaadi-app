@@ -86,7 +86,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-700 mb-4">
             <span className="text-white text-2xl">✦</span>
           </div>
-          <h1 className="text-2xl font-semibold text-stone-900">Creative Era OS</h1>
+          <h1 className="text-2xl font-semibold text-stone-900">UtsavOS</h1>
           <p className="text-stone-500 text-sm mt-1">Wedding & Event Management for Professionals</p>
         </div>
 
@@ -191,6 +191,11 @@ export default function LoginPage() {
         <p className="text-center text-xs text-stone-400 mt-3">
           Planning your own celebration?{' '}
           <a href="/celebrate" className="text-rose-600 hover:underline">Start here instead →</a>
+        </p>
+        <p className="text-center text-xs text-stone-300 mt-4">
+          <a href="/terms" className="hover:text-stone-500">Terms</a>
+          {' · '}
+          <a href="/privacy" className="hover:text-stone-500">Privacy</a>
         </p>
       </div>
     </div>

@@ -342,7 +342,7 @@ export default function TimelineClient({ weddingId, initialEvents, initialItems 
                       {/* Expanded detail */}
                       {isExpanded && (
                         <div className="px-3 pb-3 space-y-3 border-t border-stone-100 pt-3">
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div>
                               <label className="text-[10px] text-stone-400 font-medium uppercase block mb-1">Duration</label>
                               <input
@@ -353,7 +353,7 @@ export default function TimelineClient({ weddingId, initialEvents, initialItems 
                               />
                               <span className="text-[10px] text-stone-400">minutes</span>
                             </div>
-                            <div className="col-span-2">
+                            <div className="sm:col-span-2">
                               <label className="text-[10px] text-stone-400 font-medium uppercase block mb-1">Team</label>
                               <div className="flex gap-1 flex-wrap">
                                 {TEAMS.map(t => (
@@ -396,7 +396,7 @@ export default function TimelineClient({ weddingId, initialEvents, initialItems 
       {adding && (
         <div className="mt-3 bg-white border border-stone-300 rounded-xl p-4 shadow-sm">
           <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">New item</p>
-          <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
             <div>
               <label className="text-[10px] text-stone-400 block mb-1">Time *</label>
               <input
@@ -406,7 +406,7 @@ export default function TimelineClient({ weddingId, initialEvents, initialItems 
                 className="w-full text-sm border border-stone-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-rose-300"
               />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-2 sm:col-span-2">
               <label className="text-[10px] text-stone-400 block mb-1">Title *</label>
               <input
                 ref={addTitleRef}

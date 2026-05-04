@@ -91,7 +91,7 @@ export default async function DashboardPage() {
   const co = (Array.isArray(rawCo) ? rawCo[0] : rawCo) as { is_personal: boolean | null } | null
   if (co?.is_personal === true && member?.company_id) {
     const { data: pw } = await createServiceClient()
-      .from('weddings').select('id').eq('company_id', member.company_id).limit(1).single()
+      .from('weddings').select('id').eq('company_id', member.company_id).limit(1).maybeSingle()
     if (pw?.id) redirect(`/weddings/${pw.id}/overview`)
     else redirect('/weddings/new')
   }
@@ -114,7 +114,7 @@ export default async function DashboardPage() {
   const total = (weddings?.length ?? 0) + (orgEvents?.length ?? 0)
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

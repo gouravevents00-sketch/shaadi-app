@@ -25,6 +25,7 @@ export default async function DayPage({ params }: { params: Promise<{ weddingId:
     { data: arrivals },
     { data: roomCheckIns },
     { data: fbCounts },
+    { data: incidents },
   ] = await Promise.all([
     supabase.from('weddings').select('bride_name, groom_name, wedding_date, primary_city').eq('id', weddingId).single(),
     supabase.from('events').select('*').eq('wedding_id', weddingId).eq('date', today).order('start_time'),
@@ -36,7 +37,7 @@ export default async function DayPage({ params }: { params: Promise<{ weddingId:
       .or(`due_date.lte.${today},due_date.is.null`)
       .order('due_date', { ascending: true }),
     supabase.from('vendors')
-      .select('id, name, category, phone, status')
+      .select('id, name, category, phone, status, checkin_status, arrived_at')
       .eq('wedding_id', weddingId)
       .in('status', ['confirmed', 'booked']),
     supabase.from('guests').select('id, name, phone, is_vip, rsvp_submitted_at, needs_pickup').eq('wedding_id', weddingId),
@@ -63,6 +64,12 @@ export default async function DayPage({ params }: { params: Promise<{ weddingId:
       .in('event_id',
         (await sc.from('events').select('id').eq('wedding_id', weddingId).eq('date', today)).data?.map((e: { id: string }) => e.id) ?? []
       ),
+    // Today's incidents (open + resolved today)
+    sc.from('incidents')
+      .select('id, title, description, severity, status, created_at')
+      .eq('wedding_id', weddingId)
+      .gte('created_at', todayStart)
+      .order('created_at', { ascending: false }),
   ])
 
   return (
@@ -79,6 +86,7 @@ export default async function DayPage({ params }: { params: Promise<{ weddingId:
       arrivals={(arrivals ?? []) as ArrivalRecord[]}
       roomCheckIns={(roomCheckIns ?? []) as RoomCheckIn[]}
       fbCounts={(fbCounts ?? []) as FbRecord[]}
+      initialIncidents={(incidents ?? []) as { id: string; title: string; description: string; severity: string; status: string; created_at: string }[]}
     />
   )
 }

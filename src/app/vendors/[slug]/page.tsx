@@ -1,8 +1,9 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { MapPin, Star, CheckCircle2, Phone, Mail, Globe, ArrowLeft, IndianRupee } from 'lucide-react'
+import { MapPin, Star, CheckCircle2, Phone, Mail, Globe, ArrowLeft } from 'lucide-react'
 import AddToEventButton from './AddToEventButton'
+import ReviewForm from './ReviewForm'
 
 export default async function VendorProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -85,12 +86,6 @@ export default async function VendorProfilePage({ params }: { params: Promise<{ 
                     {Number(vendor.rating).toFixed(1)} ({vendor.review_count} review{vendor.review_count !== 1 ? 's' : ''})
                   </span>
                 )}
-                {vendor.price_from && (
-                  <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                    <IndianRupee className="w-3.5 h-3.5" />
-                    from ₹{vendor.price_from.toLocaleString('en-IN')} {vendor.price_unit ?? 'per event'}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -146,9 +141,9 @@ export default async function VendorProfilePage({ params }: { params: Promise<{ 
               Reviews {reviews && reviews.length > 0 && <span className="text-stone-400 font-normal">({reviews.length})</span>}
             </h2>
             {!reviews || reviews.length === 0 ? (
-              <p className="text-stone-400 text-sm">No reviews yet.</p>
+              <p className="text-stone-400 text-sm mb-4">No reviews yet — be the first!</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 mb-4">
                 {reviews.map((r: { id: string; rating: number; title: string | null; body: string | null; created_at: string }) => (
                   <div key={r.id} className="border-b border-stone-100 last:border-0 pb-4 last:pb-0">
                     <div className="flex items-center justify-between mb-1">
@@ -163,6 +158,7 @@ export default async function VendorProfilePage({ params }: { params: Promise<{ 
                 ))}
               </div>
             )}
+            <ReviewForm vendorId={vendor.id} vendorSlug={vendor.slug} />
           </div>
         </div>
 
@@ -207,14 +203,6 @@ export default async function VendorProfilePage({ params }: { params: Promise<{ 
             </a>
           )}
 
-          {/* Price */}
-          {vendor.price_from && (
-            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-              <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide">Starting price</p>
-              <p className="text-xl font-bold text-emerald-800 mt-1">₹{vendor.price_from.toLocaleString('en-IN')}</p>
-              <p className="text-xs text-emerald-600">{vendor.price_unit ?? 'per event'}</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

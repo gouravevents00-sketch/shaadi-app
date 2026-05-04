@@ -3,6 +3,27 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// ─── Fetch event workspace data (for drawer) ───────────────────
+
+export async function fetchEventDetails(weddingId: string, eventId: string) {
+  const sc = createServiceClient()
+  const [{ data: fbCounts }, { data: decorItems }, { data: vendorEvents }, { data: guestEvents }] = await Promise.all([
+    sc.from('fb_counts').select('*').eq('event_id', eventId),
+    sc.from('decor_items').select('*').eq('event_id', eventId).order('created_at'),
+    sc.from('vendor_events').select('vendor_id, vendors(id, name, category, status, contact_name, phone)').eq('event_id', eventId),
+    sc.from('guest_events').select('guest_id, rsvp_status').eq('event_id', eventId),
+  ])
+  return {
+    fbCounts: fbCounts ?? [],
+    decorItems: decorItems ?? [],
+    vendorLinks: vendorEvents ?? [],
+    guestCount: {
+      confirmed: (guestEvents ?? []).filter((ge: { rsvp_status: string }) => ge.rsvp_status === 'confirmed').length,
+      total: guestEvents?.length ?? 0,
+    },
+  }
+}
+
 // ─── F&B Counts ────────────────────────────────────────────────
 
 export async function upsertFbCount(weddingId: string, eventId: string, data: {

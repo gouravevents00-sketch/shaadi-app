@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Search, Star, MapPin, Phone, ExternalLink, CheckCircle2, Sparkles } from 'lucide-react'
+import { Search, Star, MapPin, CheckCircle2, Sparkles, ExternalLink } from 'lucide-react'
 
 const CATEGORIES = [
   'All', 'Photographer', 'Videographer', 'Caterer', 'Decorator', 'Florist',
@@ -114,7 +114,7 @@ export default async function VendorMarketplacePage({
             <p className="text-stone-400 text-sm mt-1">We&apos;re onboarding vendors — check back soon!</p>
             <p className="text-stone-400 text-xs mt-4">
               Are you a vendor?{' '}
-              <a href="mailto:vendors@creativeeraos.com" className="text-rose-600 hover:underline">List your business →</a>
+              <a href="/vendor-register" className="text-rose-600 hover:underline">List your business for free →</a>
             </p>
           </div>
         ) : (
@@ -150,11 +150,6 @@ export default async function VendorMarketplacePage({
                         {v.rating.toFixed(1)} ({v.review_count})
                       </span>
                     )}
-                    {v.price_from && (
-                      <span className="text-emerald-600 font-medium">
-                        from ₹{v.price_from.toLocaleString('en-IN')}
-                      </span>
-                    )}
                   </div>
 
                   {/* Tags */}
@@ -168,17 +163,9 @@ export default async function VendorMarketplacePage({
 
                   <div className="flex gap-2 pt-2 border-t border-stone-50">
                     <Link href={`/vendors/${v.slug}`}
-                      className="flex-1 text-center text-xs font-medium bg-rose-700 text-white py-2 rounded-lg hover:bg-rose-800 transition-colors">
-                      View profile
+                      className="flex-1 text-center text-xs font-medium bg-rose-700 text-white py-2 rounded-lg hover:bg-rose-800 transition-colors flex items-center justify-center gap-1.5">
+                      View profile <ExternalLink className="w-3 h-3" />
                     </Link>
-                    <a href={`tel:${v.id}`}
-                      className="w-9 h-9 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
-                      <Phone className="w-3.5 h-3.5 text-stone-500" />
-                    </a>
-                    <a href={`/vendors/${v.slug}`}
-                      className="w-9 h-9 flex items-center justify-center border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
-                      <ExternalLink className="w-3.5 h-3.5 text-stone-500" />
-                    </a>
                   </div>
                 </div>
               ))}
@@ -189,8 +176,8 @@ export default async function VendorMarketplacePage({
         {/* CTA for vendors to list */}
         <div className="mt-10 bg-white border border-stone-200 rounded-2xl p-6 text-center">
           <p className="font-semibold text-stone-800">Are you a wedding vendor?</p>
-          <p className="text-stone-500 text-sm mt-1 mb-4">List your business on Creative Era OS and reach thousands of couples planning their celebrations</p>
-          <a href="mailto:vendors@creativeeraos.com?subject=List my business"
+          <p className="text-stone-500 text-sm mt-1 mb-4">List your business on UtsavOS and reach thousands of couples planning their celebrations</p>
+          <a href="/vendor-register"
             className="inline-flex items-center gap-2 bg-rose-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-rose-800 transition-colors">
             List your business for free →
           </a>

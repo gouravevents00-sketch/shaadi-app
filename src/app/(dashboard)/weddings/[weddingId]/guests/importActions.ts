@@ -11,6 +11,8 @@ export interface ImportRow {
   is_vip: boolean
   dietary: string
   dietary_notes: string
+  family_group: string
+  plus_count: number
   notes: string
 }
 
@@ -69,6 +71,8 @@ export async function bulkImportGuests(
       is_vip:        row.is_vip === true || ['yes','true','1','y'].includes(String(row.is_vip).toLowerCase()),
       dietary:       normDietary(row.dietary),
       dietary_notes: row.dietary_notes?.trim() || null,
+      family_group:  row.family_group?.trim() || null,
+      plus_count:    Number(row.plus_count) || 0,
       notes:         row.notes?.trim() || null,
     }
 

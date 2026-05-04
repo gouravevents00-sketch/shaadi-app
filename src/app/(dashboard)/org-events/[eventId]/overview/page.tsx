@@ -101,7 +101,7 @@ export default async function OrgEventOverviewPage({ params }: { params: Promise
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>

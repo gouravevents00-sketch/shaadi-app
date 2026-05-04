@@ -149,7 +149,7 @@ export default function SpeakerForm({ token, speaker }: { token: string; speaker
           </form>
         </div>
 
-        <p className="text-center text-xs text-stone-400 mt-6">Powered by Creative Era OS · Event Management</p>
+        <p className="text-center text-xs text-stone-400 mt-6">Powered by UtsavOS · Event Management</p>
       </div>
     </div>
   )

@@ -26,6 +26,7 @@ export default function SignupPage() {
   const [company, setCompany] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
 
   async function handleSignup(e: React.FormEvent) {
@@ -34,6 +35,7 @@ export default function SignupPage() {
     if (!company.trim()) { toast.error('Enter your agency / company name'); return }
     if (password.length < 6) { toast.error('Password must be at least 6 characters'); return }
 
+    if (!agreed) { toast.error('Please agree to Terms of Service and Privacy Policy'); return }
     setLoading(true)
     const res = await signupWithCompany({ name, email, password, companyName: company })
     if ('error' in res) { toast.error(res.error); setLoading(false); return }
@@ -57,7 +59,7 @@ export default function SignupPage() {
           <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
             <span className="text-white text-sm font-bold">✦</span>
           </div>
-          <span className="text-white font-semibold">Creative Era OS</span>
+          <span className="text-white font-semibold">UtsavOS</span>
         </div>
 
         <div>
@@ -90,7 +92,7 @@ export default function SignupPage() {
             <div className="w-7 h-7 rounded-lg bg-rose-700 flex items-center justify-center">
               <span className="text-white text-xs font-bold">✦</span>
             </div>
-            <span className="font-semibold text-stone-900 text-sm">Creative Era OS</span>
+            <span className="font-semibold text-stone-900 text-sm">UtsavOS</span>
           </div>
 
           <div className="mb-7">
@@ -139,10 +141,26 @@ export default function SignupPage() {
               />
             </div>
 
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={e => setAgreed(e.target.checked)}
+                className="mt-0.5 rounded border-stone-300 text-rose-700 focus:ring-rose-500"
+              />
+              <span className="text-xs text-stone-500 leading-relaxed">
+                I agree to Utsav's{' '}
+                <Link href="/terms" target="_blank" className="text-rose-700 hover:underline font-medium">Terms of Service</Link>
+                {' '}and{' '}
+                <Link href="/privacy" target="_blank" className="text-rose-700 hover:underline font-medium">Privacy Policy</Link>.
+                I confirm I have the right to upload and process client/guest data on this platform.
+              </span>
+            </label>
+
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full bg-rose-700 hover:bg-rose-800 h-11"
+              disabled={loading || !agreed}
+              className="w-full bg-rose-700 hover:bg-rose-800 h-11 disabled:opacity-50"
             >
               {loading
                 ? <><Sparkles className="w-4 h-4 mr-2 animate-spin" /> Setting up…</>

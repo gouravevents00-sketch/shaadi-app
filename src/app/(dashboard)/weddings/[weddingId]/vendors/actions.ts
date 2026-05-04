@@ -123,6 +123,26 @@ export async function toggleVendorEvent(weddingId: string, vendorId: string, eve
   }
 }
 
+// ─── Vendor check-in (day ops) ────────────────────────────────
+
+export async function updateVendorCheckin(
+  weddingId: string,
+  vendorId: string,
+  checkinStatus: string,   // 'expected' | 'arrived' | 'no_show' | 'left'
+  notes?: string
+) {
+  const r = await getVerified(weddingId)
+  if ('error' in r) return { error: r.error }
+  const patch: Record<string, unknown> = { checkin_status: checkinStatus }
+  if (checkinStatus === 'arrived') patch.arrived_at = new Date().toISOString()
+  if (checkinStatus === 'left')    patch.left_at = new Date().toISOString()
+  if (notes !== undefined)         patch.checkin_notes = notes
+  const { error } = await r.sc.from('vendors').update(patch).eq('id', vendorId)
+  if (error) return { error: error.message }
+  revalidatePath(PATH(weddingId))
+  return { ok: true }
+}
+
 async function recalcPaid(sc: ReturnType<typeof createServiceClient>, vendorId: string) {
   const { data: pmts } = await sc.from('vendor_payments')
     .select('amount, paid_date').eq('vendor_id', vendorId)

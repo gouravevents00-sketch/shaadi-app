@@ -18,6 +18,8 @@ export default async function RoomsPage({ params }: { params: Promise<{ weddingI
         id, room_number, type, capacity, floor, notes,
         room_allocations (
           id, check_in, check_out, kit_given, kit_given_at,
+          id_collected, id_collected_at, key_issued, key_issued_at,
+          welcome_kit, welcome_kit_at, checked_in_at,
           guests ( id, name, family_members )
         )
       `)

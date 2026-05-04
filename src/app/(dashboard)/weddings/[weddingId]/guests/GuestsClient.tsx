@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Users, Search, Star, Link2, MessageCircle, Copy, ExternalLink, ScanLine, CheckCircle2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, Search, Star, Link2, MessageCircle, Copy, ScanLine, CheckCircle2 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog'
@@ -16,6 +15,8 @@ import {
 import { createGuest, updateGuest, deleteGuest, checkInGuest } from './actions'
 import { assignGuestToEvent, unassignGuestFromEvent } from './assignActions'
 import GuestImport from './GuestImport'
+import GuestDrawer from './GuestDrawer'
+import type { GuestArrival, GuestRoomAlloc, GuestRoom } from './page'
 
 interface Wedding {
   bride_name: string
@@ -85,12 +86,15 @@ const empty = {
   plus_count: 0, invite_group: 'all', family_group: '',
 }
 
-export default function GuestsClient({ weddingId, wedding, initialGuests, events, guestEvents: initialGuestEvents }: {
+export default function GuestsClient({ weddingId, wedding, initialGuests, events, guestEvents: initialGuestEvents, arrivals, roomAllocs, rooms }: {
   weddingId: string
   wedding: Wedding
   initialGuests: Guest[]
   events: Event[]
   guestEvents: GuestEvent[]
+  arrivals: GuestArrival[]
+  roomAllocs: GuestRoomAlloc[]
+  rooms: GuestRoom[]
 }) {
   const [guests, setGuests] = useState<Guest[]>(initialGuests)
   const [guestEvents, setGuestEvents] = useState<GuestEvent[]>(initialGuestEvents)
@@ -106,6 +110,7 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
   const [waSide, setWaSide] = useState<'all' | 'bride' | 'groom'>('all')
   const [groupByFamily, setGroupByFamily] = useState(false)
   const [checkInMode, setCheckInMode] = useState(false)
+  const [drawerGuest, setDrawerGuest] = useState<Guest | null>(null)
 
   function buildRsvpLink(token: string) {
     return `${window.location.origin}/rsvp/${token}`
@@ -354,110 +359,183 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
             }, {})
           : { '': filtered }
 
-        const GuestRow = ({ guest }: { guest: Guest }) => (
-          <tr key={guest.id} className={`border-b border-stone-100 last:border-0 hover:bg-stone-50 ${guest.checked_in_at ? 'bg-emerald-50/40' : ''}`}>
-            <td className="px-4 py-3">
-              <div className="flex items-center gap-2">
-                {guest.is_vip && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />}
-                <span className="font-medium text-stone-900">{guest.name}</span>
-                {guest.plus_count > 0 && (
-                  <span className="text-xs bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded-full">+{guest.plus_count}</span>
-                )}
-                {guest.rsvp_submitted_at && (
-                  <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">RSVP'd</span>
-                )}
-                {guest.checked_in_at && (
-                  <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">✓ Checked in</span>
-                )}
-              </div>
-              {guest.email && <p className="text-xs text-stone-400">{guest.email}</p>}
-            </td>
-            <td className="px-4 py-3 text-stone-600">{guest.phone || '—'}</td>
-            <td className="px-4 py-3">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SIDE_COLORS[guest.side]}`}>
-                {SIDE_LABELS[guest.side]}
-              </span>
-            </td>
-            <td className="px-4 py-3 text-stone-600">{DIETARY_LABELS[guest.dietary]}</td>
-            <td className="px-4 py-3">
-              <button onClick={() => setAssigningGuest(guest)}
-                className="text-xs text-rose-700 hover:underline font-medium">
-                {getGuestEventCount(guest.id)}/{events.length} events
-              </button>
-            </td>
-            <td className="px-4 py-3">
-              <div className="flex gap-1 justify-end">
-                {checkInMode ? (
-                  <Button
-                    size="sm"
-                    variant={guest.checked_in_at ? 'default' : 'outline'}
-                    className={guest.checked_in_at ? 'bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-3' : 'h-7 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50'}
-                    onClick={() => handleCheckIn(guest)}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    {guest.checked_in_at ? 'Checked in' : 'Check in'}
-                  </Button>
-                ) : (
-                  <>
-                    <Link href={`/weddings/${weddingId}/guests/${guest.id}`}>
-                      <Button size="icon-sm" variant="ghost" title="Guest 360 — view all details">
-                        <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+        const GuestRow = ({ guest }: { guest: Guest }) => {
+          const roomAlloc = roomAllocs.find(r => r.guest_id === guest.id)
+          const arrival = arrivals.find(a => a.guest_id === guest.id)
+          return (
+            <tr key={guest.id} className={`border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer ${guest.checked_in_at ? 'bg-emerald-50/40' : ''}`}
+              onClick={() => !checkInMode && setDrawerGuest(guest)}>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  {guest.is_vip && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />}
+                  <span className="font-medium text-stone-900">{guest.name}</span>
+                  {guest.plus_count > 0 && (
+                    <span className="text-xs bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded-full">+{guest.plus_count}</span>
+                  )}
+                </div>
+                {guest.phone && <p className="text-xs text-stone-400">{guest.phone}</p>}
+              </td>
+              <td className="px-4 py-3">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SIDE_COLORS[guest.side]}`}>
+                  {SIDE_LABELS[guest.side]}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                {guest.rsvp_submitted_at
+                  ? <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">RSVP'd</span>
+                  : <span className="text-xs text-stone-400">pending</span>}
+              </td>
+              <td className="px-4 py-3">
+                {guest.checked_in_at
+                  ? <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">✓ In</span>
+                  : <span className="text-xs text-stone-300">—</span>}
+              </td>
+              <td className="px-4 py-3">
+                {roomAlloc?.rooms
+                  ? <span className="text-xs bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded font-medium">Room {roomAlloc.rooms.room_number}</span>
+                  : <span className="text-xs text-stone-300">—</span>}
+              </td>
+              <td className="px-4 py-3">
+                {arrival && arrival.status !== 'expected'
+                  ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium capitalize ${arrival.status === 'arrived' ? 'bg-blue-50 text-blue-700' : 'bg-stone-100 text-stone-500'}`}>{arrival.status}</span>
+                  : arrival ? <span className="text-xs text-stone-400">expected</span>
+                  : <span className="text-xs text-stone-300">—</span>}
+              </td>
+              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                <div className="flex gap-1 justify-end">
+                  {checkInMode ? (
+                    <Button
+                      size="sm"
+                      variant={guest.checked_in_at ? 'default' : 'outline'}
+                      className={guest.checked_in_at ? 'bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-3' : 'h-7 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50'}
+                      onClick={() => handleCheckIn(guest)}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      {guest.checked_in_at ? 'Checked in' : 'Check in'}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="icon-sm" variant="ghost" title="Copy RSVP link"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/rsvp/${guest.rsvp_token}`)
+                          toast.success('RSVP link copied')
+                        }}>
+                        <Link2 className="w-3.5 h-3.5" />
                       </Button>
-                    </Link>
-                    <Button size="icon-sm" variant="ghost" title="Copy RSVP link"
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/rsvp/${guest.rsvp_token}`)
-                        toast.success('RSVP link copied')
-                      }}>
-                      <Link2 className="w-3.5 h-3.5" />
+                      <Button size="icon-sm" variant="ghost" onClick={() => openEdit(guest)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon-sm" variant="ghost" onClick={() => setDeleteId(guest.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </td>
+            </tr>
+          )
+        }
+
+        // Mobile card component
+        const GuestCard = ({ guest }: { guest: Guest }) => {
+          const roomAlloc = roomAllocs.find(r => r.guest_id === guest.id)
+          return (
+            <div className={`px-4 py-3 border-b border-stone-100 last:border-0 ${guest.checked_in_at ? 'bg-emerald-50/40' : ''}`}
+              onClick={() => !checkInMode && setDrawerGuest(guest)}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {guest.is_vip && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />}
+                    <span className="font-medium text-stone-900">{guest.name}</span>
+                    {guest.plus_count > 0 && <span className="text-xs bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded-full">+{guest.plus_count}</span>}
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${SIDE_COLORS[guest.side]}`}>{SIDE_LABELS[guest.side]}</span>
+                    {guest.rsvp_submitted_at && <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">RSVP'd</span>}
+                    {guest.checked_in_at && <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">✓ In</span>}
+                    {roomAlloc?.rooms && <span className="text-xs bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded">Rm {roomAlloc.rooms.room_number}</span>}
+                  </div>
+                  <p className="text-xs text-stone-400 mt-0.5">{guest.phone || guest.email || DIETARY_LABELS[guest.dietary]}</p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                  {checkInMode ? (
+                    <Button
+                      size="sm"
+                      variant={guest.checked_in_at ? 'default' : 'outline'}
+                      className={guest.checked_in_at ? 'bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3' : 'h-8 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50'}
+                      onClick={() => handleCheckIn(guest)}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      {guest.checked_in_at ? 'In' : 'Check in'}
                     </Button>
-                    <Button size="icon-sm" variant="ghost" onClick={() => openEdit(guest)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="icon-sm" variant="ghost" onClick={() => setDeleteId(guest.id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <Button size="icon-sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/rsvp/${guest.rsvp_token}`); toast.success('RSVP link copied') }}>
+                        <Link2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon-sm" variant="ghost" onClick={() => openEdit(guest)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button size="icon-sm" variant="ghost" onClick={() => setDeleteId(guest.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </>
+                  )}
+                </div>
               </div>
-            </td>
-          </tr>
-        )
+            </div>
+          )
+        }
 
         return (
-          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead>
-                <tr className="border-b border-stone-100 bg-stone-50">
-                  <th className="text-left px-4 py-3 font-medium text-stone-500">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-stone-500">Phone</th>
-                  <th className="text-left px-4 py-3 font-medium text-stone-500">Side</th>
-                  <th className="text-left px-4 py-3 font-medium text-stone-500">Dietary</th>
-                  <th className="text-left px-4 py-3 font-medium text-stone-500">Events</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupByFamily
-                  ? Object.entries(groupedMap).sort(([a], [b]) => a.localeCompare(b)).map(([group, groupGuests]) => (
-                      <>
-                        <tr key={`group-${group}`} className="bg-stone-50 border-b border-stone-200">
-                          <td colSpan={6} className="px-4 py-2">
-                            <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{group}</span>
-                            <span className="text-xs text-stone-400 ml-2">{groupGuests.length} guest{groupGuests.length !== 1 ? 's' : ''}</span>
-                          </td>
-                        </tr>
-                        {groupGuests.map(g => <GuestRow key={g.id} guest={g} />)}
-                      </>
-                    ))
-                  : filtered.map(g => <GuestRow key={g.id} guest={g} />)
-                }
-              </tbody>
-            </table>
-            {filtered.length === 0 && (
-              <p className="text-center text-stone-400 text-sm py-8">No guests match your search</p>
-            )}
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-stone-100">
+              {groupByFamily
+                ? Object.entries(groupedMap).sort(([a], [b]) => a.localeCompare(b)).map(([group, groupGuests]) => (
+                    <div key={`group-${group}`}>
+                      <div className="px-4 py-2 bg-stone-50 border-b border-stone-200">
+                        <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{group}</span>
+                        <span className="text-xs text-stone-400 ml-2">{groupGuests.length} guest{groupGuests.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      {groupGuests.map(g => <GuestCard key={g.id} guest={g} />)}
+                    </div>
+                  ))
+                : filtered.map(g => <GuestCard key={g.id} guest={g} />)
+              }
+              {filtered.length === 0 && <p className="text-center text-stone-400 text-sm py-8">No guests match your search</p>}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-stone-100 bg-stone-50">
+                    <th className="text-left px-4 py-3 font-medium text-stone-500">Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-stone-500">Side</th>
+                    <th className="text-left px-4 py-3 font-medium text-stone-500">RSVP</th>
+                    <th className="text-left px-4 py-3 font-medium text-stone-500">Check-in</th>
+                    <th className="text-left px-4 py-3 font-medium text-stone-500">Room</th>
+                    <th className="text-left px-4 py-3 font-medium text-stone-500">Arrival</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupByFamily
+                    ? Object.entries(groupedMap).sort(([a], [b]) => a.localeCompare(b)).map(([group, groupGuests]) => (
+                        <>
+                          <tr key={`group-${group}`} className="bg-stone-50 border-b border-stone-200">
+                            <td colSpan={7} className="px-4 py-2">
+                              <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{group}</span>
+                              <span className="text-xs text-stone-400 ml-2">{groupGuests.length} guest{groupGuests.length !== 1 ? 's' : ''}</span>
+                            </td>
+                          </tr>
+                          {groupGuests.map(g => <GuestRow key={g.id} guest={g} />)}
+                        </>
+                      ))
+                    : filtered.map(g => <GuestRow key={g.id} guest={g} />)
+                  }
+                </tbody>
+              </table>
+              {filtered.length === 0 && (
+                <p className="text-center text-stone-400 text-sm py-8">No guests match your search</p>
+              )}
+            </div>
           </div>
         )
       })()}
@@ -707,7 +785,7 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
                       {guest.phone && (
                         <a href={waUrl} target="_blank" rel="noopener noreferrer"
                           className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1 font-medium">
-                          <ExternalLink className="w-3 h-3" /> Open WhatsApp
+                          ↗ Open WhatsApp
                         </a>
                       )}
                     </div>
@@ -725,6 +803,23 @@ export default function GuestsClient({ weddingId, wedding, initialGuests, events
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Guest Detail Drawer */}
+      {drawerGuest && (
+        <GuestDrawer
+          key={drawerGuest.id}
+          open={!!drawerGuest}
+          onClose={() => setDrawerGuest(null)}
+          weddingId={weddingId}
+          guest={drawerGuest}
+          events={events}
+          guestEvents={guestEvents.filter(ge => ge.guest_id === drawerGuest.id)}
+          arrival={arrivals.find(a => a.guest_id === drawerGuest.id) ?? null}
+          roomAlloc={roomAllocs.find(r => r.guest_id === drawerGuest.id) ?? null}
+          rooms={rooms}
+          onGuestUpdate={(id, patch) => setGuests(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g))}
+        />
+      )}
     </div>
   )
 }

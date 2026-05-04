@@ -13,23 +13,34 @@ import { bulkImportPack, getEventCounts, type GuestRow, type VendorRow, type Bud
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
 
+// Smart detection: new template has headers at row 4 (range:3), old template at row 1 (range:0).
+// Try row 4 first; fall back to row 1 if known header columns are missing.
+function smartRows(ws: XLSX.WorkSheet, knownHeaders: string[]): Record<string, string | number>[] {
+  for (const range of [3, 0]) {
+    const rows = XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '', range })
+    if (rows.length > 0 && knownHeaders.some(h => h in rows[0])) return rows
+  }
+  return []
+}
+
 function parseGuests(ws: XLSX.WorkSheet): GuestRow[] {
-  const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' })
-  return rows.map(r => ({
+  const rows = smartRows(ws, ['Name', 'Name *', 'Phone', 'Side'])
+  return (rows as Record<string, string>[]).map(r => ({
     name:          String(r['Name'] || r['Name *'] || ''),
     phone:         String(r['Phone'] || ''),
     email:         String(r['Email'] || ''),
-    side:          String(r['Side'] || 'Both').toLowerCase().replace('-', '_'),
+    side:          String(r['Side'] || r['Side *'] || 'Both').toLowerCase().replace('-', '_'),
     is_vip:        ['yes','true','1'].includes(String(r['VIP'] || 'no').toLowerCase()),
     dietary:       String(r['Dietary'] || 'Veg').toLowerCase().replace('-', '_'),
     dietary_notes: String(r['Dietary Notes'] || ''),
     family_group:  String(r['Family Group'] || ''),
+    plus_count:    Number(r['Plus Count'] || 0),
     notes:         String(r['Notes'] || ''),
   })).filter(r => r.name.trim())
 }
 
 function parseVendors(ws: XLSX.WorkSheet): VendorRow[] {
-  const rows = XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' })
+  const rows = smartRows(ws, ['Category', 'Category *', 'Vendor Name', 'Vendor Name *'])
   return rows.map(r => ({
     category:     String(r['Category'] || r['Category *'] || ''),
     name:         String(r['Vendor Name'] || r['Vendor Name *'] || ''),
@@ -44,12 +55,12 @@ function parseVendors(ws: XLSX.WorkSheet): VendorRow[] {
 }
 
 function parseBudget(ws: XLSX.WorkSheet): BudgetRow[] {
-  const rows = XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' })
+  const rows = smartRows(ws, ['Category', 'Category *', 'Item', 'Item *'])
   return rows.map(r => ({
     category:    String(r['Category'] || r['Category *'] || ''),
     item:        String(r['Item'] || r['Item *'] || ''),
     estimated:   Number(r['Estimated (₹)'] ?? r['Estimated'] ?? 0),
-    actual:      Number(r['Actual (₹)'] ?? r['Actual'] ?? 0),
+    actual:      Number(r['Vendor Quote (₹)'] ?? r['Actual (₹)'] ?? r['Actual'] ?? 0),
     vendor_name: String(r['Vendor Name'] || ''),
     notes:       String(r['Notes'] || ''),
   })).filter(r => r.category.trim() && r.item.trim())

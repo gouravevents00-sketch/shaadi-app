@@ -13,81 +13,81 @@ type EntityType = 'wedding' | 'org_event'
 
 const FALLBACK_SUGGESTIONS: Record<string, string[]> = {
   wedding: [
-    'Aaj ka status kya hai?',
-    'RSVP pending kaun hain?',
-    'Koi overdue payments hain?',
-    'Checklist mein kya baaki hai?',
-    'Unseated VIP guests kaun hain?',
+    'Today\'s status overview?',
+    'Who hasn\'t RSVP\'d yet?',
+    'Any overdue vendor payments?',
+    "What's pending on the checklist?",
+    'Which VIP guests are not seated?',
   ],
   org_event: [
-    'Event ka overall status kya hai?',
-    'Koi overdue payments hain?',
-    'Checklist mein kya pending hai?',
+    'What\'s the overall event status?',
+    'Any overdue vendor payments?',
+    "What's pending on the checklist?",
   ],
   conference: [
-    'Kitne speakers confirmed hain?',
-    'Delegate registrations ka status?',
-    'Koi overdue payments hain?',
-    'Checklist mein kya pending hai?',
-    'Sponsors confirmed hain?',
+    'How many speakers are confirmed?',
+    'What\'s the delegate registration status?',
+    'Any overdue vendor payments?',
+    "What's pending on the checklist?",
+    'Which sponsors are confirmed?',
   ],
   award_ceremony: [
-    'VIP guests ka status kya hai?',
-    'Run of show ready hai?',
-    'Koi overdue payments hain?',
-    'Checklist mein kya pending hai?',
+    'What\'s the VIP guests status?',
+    'Is the run of show ready?',
+    'Any overdue vendor payments?',
+    "What's pending on the checklist?",
   ],
   concert: [
-    'Artists ka confirmation status?',
-    'Volunteers briefed hain?',
+    'What\'s the artist confirmation status?',
+    'Are volunteers briefed?',
     'Sound & AV vendors confirmed?',
-    'Checklist mein kya pending hai?',
-    'Koi overdue payments hain?',
+    "What's pending on the checklist?",
+    'Any overdue vendor payments?',
   ],
   festival: [
-    'Kitne artists confirmed hain?',
-    'Volunteer assignments complete hain?',
-    'Vendors ka status kya hai?',
-    'Checklist mein kya pending hai?',
+    'How many artists are confirmed?',
+    'Are volunteer assignments complete?',
+    'What\'s the vendor status?',
+    "What's pending on the checklist?",
   ],
   brand_activation: [
-    'Promoters ready hain?',
-    'Sampling inventory confirm hua?',
-    'Checklist mein kya pending hai?',
-    'Koi overdue payments hain?',
+    'Are promoters ready?',
+    'Is the sampling inventory confirmed?',
+    "What's pending on the checklist?",
+    'Any overdue vendor payments?',
   ],
   sampling_campaign: [
-    'Promoters ready hain?',
-    'Inventory dispatch hua?',
-    'Checklist mein kya pending hai?',
+    'Are promoters ready?',
+    'Has the inventory been dispatched?',
+    "What's pending on the checklist?",
   ],
   roadshow: [
-    'Vehicles confirmed hain?',
-    'City-wise schedule ready hai?',
-    'Promoters briefed hain?',
-    'Checklist mein kya pending hai?',
+    'Are vehicles confirmed?',
+    'Is the city-wise schedule ready?',
+    'Are promoters briefed?',
+    "What's pending on the checklist?",
   ],
   state_function: [
-    'VIP protocol list ready hai?',
-    'Accommodation confirmed hai?',
-    'Checklist mein kya pending hai?',
-    'Koi overdue payments hain?',
+    'Is the VIP protocol list ready?',
+    'Is accommodation confirmed?',
+    "What's pending on the checklist?",
+    'Any overdue vendor payments?',
   ],
   sports: [
-    'Volunteers assigned hain?',
+    'Are volunteers assigned?',
     'Timing & registration ready?',
     'Medical team confirmed?',
-    'Checklist mein kya pending hai?',
+    "What's pending on the checklist?",
   ],
 }
 
 const GREET: Record<string, string> = {
   wedding:    'Give me a quick status summary of this wedding — what needs attention right now?',
   org_event:  'Give me a quick status summary of this event — what needs attention right now?',
-  conference: 'Give me a quick status of this conference — speakers, delegates, sponsors status kya hai?',
-  concert:    'Give me a quick status of this concert — artists, volunteers, AV vendors ka kya haal hai?',
-  festival:   'Give me a quick status of this festival — artists, volunteers, key pending tasks kya hain?',
-  brand_activation: 'Give me a quick status of this activation — promoters, inventory, pending tasks kya hain?',
+  conference: 'Give me a quick status of this conference — speakers, delegates, and sponsors.',
+  concert:    'Give me a quick status of this concert — artists, volunteers, and AV vendors.',
+  festival:   'Give me a quick status of this festival — artists, volunteers, and key pending tasks.',
+  brand_activation: 'Give me a quick status of this activation — promoters, inventory, and pending tasks.',
 }
 
 function detectEntity(pathname: string): { entityId: string; entityType: EntityType } | null {
@@ -205,7 +205,7 @@ export default function AiAssistant() {
       })
 
       if (!res.ok || !res.body) {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Kuch error aa gaya, dobara try karo.' }])
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
         setLoading(false)
         return
       }

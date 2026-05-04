@@ -40,20 +40,15 @@ export async function upgradeToPro(celebrationId: string) {
   if (!user) return { error: 'Not authenticated' }
   const sc = createServiceClient()
 
-  // Verify celebration belongs to user
-  // NOTE: column is event_date (not date), and company_id/wedding_id added by sprint1 migration
   const { data: celebration, error: celErr } = await sc.from('celebrations')
     .select('id, user_id, name, type, event_date, guest_count, company_id, wedding_id, plan, venue, city')
     .eq('id', celebrationId).eq('user_id', user.id).single()
   if (celErr || !celebration) return { error: celErr?.message ?? 'No access' }
 
-  // Already upgraded — just return the existing weddingId
   if (celebration.plan === 'pro' && celebration.wedding_id) {
     return { ok: true, weddingId: celebration.wedding_id as string }
   }
 
-  // 1. Get or create personal company for this user
-  // Two-step: get user's memberships, then find one whose company is personal
   let companyId: string
   const { data: memberships } = await sc.from('company_members')
     .select('company_id').eq('user_id', user.id)
@@ -86,7 +81,6 @@ export async function upgradeToPro(celebrationId: string) {
     if (memberErr) return { error: memberErr.message }
   }
 
-  // 2. Create wedding record from celebration data
   const eventCode = 'P' + Date.now().toString(36).toUpperCase().slice(-5) + Math.random().toString(36).slice(2, 4).toUpperCase()
   const cel = celebration as typeof celebration & { venue?: string | null; city?: string | null }
   const { data: wedding, error: weddingErr } = await sc.from('weddings').insert({
@@ -103,7 +97,6 @@ export async function upgradeToPro(celebrationId: string) {
   }).select('id').single()
   if (weddingErr || !wedding) return { error: weddingErr?.message ?? 'Could not create event record' }
 
-  // 3. Update celebration: plan, company_id, wedding_id
   const { error: updateErr } = await sc.from('celebrations')
     .update({ plan: 'pro', company_id: companyId, wedding_id: wedding.id })
     .eq('id', celebrationId)
@@ -139,6 +132,48 @@ export async function deleteCelebrationGuest(guestId: string) {
   return error ? { error: error.message } : { ok: true }
 }
 
+// ── Feature 1: Bulk import guests from CSV ─────────────────────
+export async function bulkImportCelebrationGuests(
+  celebrationId: string,
+  rows: Array<{
+    name: string; phone?: string; email?: string; side?: string
+    family_group?: string; is_vip?: boolean; dietary?: string
+    plus_count?: number; notes?: string
+  }>
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: cel } = await sc.from('celebrations').select('user_id').eq('id', celebrationId).single()
+  if (!cel || cel.user_id !== user.id) return { error: 'No access' }
+
+  const records = rows.map(r => ({
+    celebration_id: celebrationId,
+    name: r.name.trim(),
+    phone: r.phone?.trim() || null,
+    email: r.email?.trim() || null,
+    side: r.side?.toLowerCase() || 'both',
+    family_group: r.family_group?.trim() || null,
+    is_vip: r.is_vip ?? false,
+    dietary: r.dietary?.trim() || null,
+    plus_count: r.plus_count ?? 0,
+    notes: r.notes?.trim() || null,
+  }))
+
+  const { error } = await sc.from('celebration_guests').insert(records)
+  return error ? { error: error.message } : { ok: true, count: records.length }
+}
+
+// ── Feature 4: Update guest function attendance ────────────────
+export async function updateGuestFunctions(guestId: string, functionIds: string[]) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_guests')
+    .update({ attending_function_ids: functionIds })
+    .eq('id', guestId)
+  return error ? { error: error.message } : { ok: true }
+}
+
 // ── Pro: Budget ────────────────────────────────────────────────
 export async function addBudgetItem(celebrationId: string, data: {
   category: string; description: string; estimated: number
@@ -171,6 +206,13 @@ export async function deleteBudgetItem(itemId: string) {
   return error ? { error: error.message } : { ok: true }
 }
 
+// ── Feature 13: Update budget payment due ─────────────────────
+export async function updateBudgetPaymentDue(itemId: string, date: string | null) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_budget').update({ payment_due: date || null }).eq('id', itemId)
+  return error ? { error: error.message } : { ok: true }
+}
+
 export async function connectToCreativeEra(celebrationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -178,29 +220,25 @@ export async function connectToCreativeEra(celebrationId: string) {
 
   const sc = createServiceClient()
 
-  // Verify celebration belongs to user
   const { data: celebration } = await sc.from('celebrations')
     .select('id, user_id, name, type').eq('id', celebrationId).single()
   if (!celebration || celebration.user_id !== user.id) return { error: 'No access' }
 
-  // Find Creative Era company — try slug first, fallback to first company
   let company = null
   const slug = process.env.CREATIVE_ERA_COMPANY_SLUG || 'creative-era'
   const { data: bySlug } = await sc.from('companies').select('id, name').eq('slug', slug).single()
   if (bySlug) {
     company = bySlug
   } else {
-    const { data: first } = await sc.from('companies').select('id, name').limit(1).single()
+    const { data: first } = await sc.from('companies').select('id, name').limit(1).maybeSingle()
     company = first
   }
   if (!company) return { error: 'No agency found' }
 
-  // Check if already connected
   const { data: existing } = await sc.from('planner_connections')
     .select('id, status, wedding_id').eq('celebration_id', celebrationId).eq('company_id', company.id).single()
   if (existing) return { ok: true, status: existing.status, weddingId: existing.wedding_id, companyName: company.name }
 
-  // Create connection
   const { error } = await sc.from('planner_connections').insert({
     celebration_id: celebrationId,
     company_id: company.id,
@@ -209,7 +247,6 @@ export async function connectToCreativeEra(celebrationId: string) {
   })
   if (error) return { error: error.message }
 
-  // Notify agency members
   try {
     const { sendNewLeadEmail } = await import('@/lib/email')
     const { data: members } = await sc.from('company_members').select('user_id').eq('company_id', company.id)
@@ -228,4 +265,256 @@ export async function connectToCreativeEra(celebrationId: string) {
   } catch { /* non-blocking */ }
 
   return { ok: true, status: 'pending', weddingId: null, companyName: company.name }
+}
+
+// ── Guests: update RSVP / details ─────────────────────────────
+export async function updateCelebrationGuest(guestId: string, data: {
+  name?: string; phone?: string; email?: string; dietary?: string; dietary_notes?: string
+  plus_count?: number; side?: string; family_group?: string; is_vip?: boolean
+  rsvp_status?: string; notes?: string; arrival_mode?: string; arrival_time?: string
+  flight_no?: string; needs_pickup?: boolean; room_id?: string | null
+}) {
+  const sc = createServiceClient()
+  const updates: Record<string, unknown> = {}
+  if (data.name !== undefined) updates.name = data.name.trim()
+  if (data.phone !== undefined) updates.phone = data.phone?.trim() || null
+  if (data.email !== undefined) updates.email = data.email?.trim() || null
+  if (data.dietary !== undefined) updates.dietary = data.dietary || null
+  if (data.plus_count !== undefined) updates.plus_count = data.plus_count
+  if (data.side !== undefined) updates.side = data.side
+  if (data.family_group !== undefined) updates.family_group = data.family_group?.trim() || null
+  if (data.is_vip !== undefined) updates.is_vip = data.is_vip
+  if (data.rsvp_status !== undefined) updates.rsvp_status = data.rsvp_status
+  if (data.notes !== undefined) updates.notes = data.notes?.trim() || null
+  if (data.arrival_mode !== undefined) updates.arrival_mode = data.arrival_mode || null
+  if (data.arrival_time !== undefined) updates.arrival_time = data.arrival_time || null
+  if (data.flight_no !== undefined) updates.flight_no = data.flight_no?.trim() || null
+  if (data.needs_pickup !== undefined) updates.needs_pickup = data.needs_pickup
+  if (data.room_id !== undefined) updates.room_id = data.room_id
+  const { error } = await sc.from('celebration_guests').update(updates).eq('id', guestId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Vendors ────────────────────────────────────────────────────
+export async function addCelebrationVendor(celebrationId: string, data: {
+  category: string; name: string; contact_name?: string; phone?: string; email?: string
+  total_amount?: number; advance_paid?: number; status?: string; notes?: string; payment_due?: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: cel } = await sc.from('celebrations').select('user_id').eq('id', celebrationId).single()
+  if (!cel || cel.user_id !== user.id) return { error: 'No access' }
+  const { data: vendor, error } = await sc.from('celebration_vendors').insert({
+    celebration_id: celebrationId,
+    category: data.category,
+    name: data.name.trim(),
+    contact_name: data.contact_name?.trim() || null,
+    phone: data.phone?.trim() || null,
+    email: data.email?.trim() || null,
+    total_amount: data.total_amount ?? 0,
+    advance_paid: data.advance_paid ?? 0,
+    status: data.status || 'enquired',
+    notes: data.notes?.trim() || null,
+    payment_due: data.payment_due || null,
+  }).select('id').single()
+  return error ? { error: error.message } : { id: vendor.id }
+}
+
+export async function updateCelebrationVendor(vendorId: string, data: {
+  status?: string; advance_paid?: number; total_amount?: number; notes?: string; payment_due?: string
+}) {
+  const sc = createServiceClient()
+  const updates: Record<string, unknown> = {}
+  if (data.status !== undefined) updates.status = data.status
+  if (data.advance_paid !== undefined) updates.advance_paid = data.advance_paid
+  if (data.total_amount !== undefined) updates.total_amount = data.total_amount
+  if (data.notes !== undefined) updates.notes = data.notes
+  if (data.payment_due !== undefined) updates.payment_due = data.payment_due || null
+  const { error } = await sc.from('celebration_vendors').update(updates).eq('id', vendorId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function deleteCelebrationVendor(vendorId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_vendors').delete().eq('id', vendorId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Rooms ──────────────────────────────────────────────────────
+export async function addRoom(celebrationId: string, data: {
+  name: string; room_type: string; capacity: number; floor_block?: string; notes?: string; map_url?: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: cel } = await sc.from('celebrations').select('user_id').eq('id', celebrationId).single()
+  if (!cel || cel.user_id !== user.id) return { error: 'No access' }
+  const { data: room, error } = await sc.from('celebration_rooms').insert({
+    celebration_id: celebrationId,
+    name: data.name.trim(),
+    room_type: data.room_type,
+    capacity: data.capacity,
+    floor_block: data.floor_block?.trim() || null,
+    notes: data.notes?.trim() || null,
+    map_url: data.map_url?.trim() || null,
+  }).select('id').single()
+  return error ? { error: error.message } : { id: room.id }
+}
+
+export async function deleteRoom(roomId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_rooms').delete().eq('id', roomId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function allotRoom(data: {
+  roomId: string; guestId: string; celebrationId: string; checkIn?: string; checkOut?: string
+}) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_room_allotments').upsert({
+    room_id: data.roomId,
+    guest_id: data.guestId,
+    celebration_id: data.celebrationId,
+    check_in: data.checkIn || null,
+    check_out: data.checkOut || null,
+  }, { onConflict: 'room_id,guest_id' })
+  if (!error) await sc.from('celebration_guests').update({ room_id: data.roomId }).eq('id', data.guestId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function removeFromRoom(guestId: string, roomId: string) {
+  const sc = createServiceClient()
+  await sc.from('celebration_room_allotments').delete().eq('guest_id', guestId).eq('room_id', roomId)
+  await sc.from('celebration_guests').update({ room_id: null }).eq('id', guestId)
+  return { ok: true }
+}
+
+// ── Feature 5: Bulk create rooms ──────────────────────────────
+export async function bulkCreateRooms(
+  celebrationId: string,
+  rooms: Array<{
+    name: string; room_type: string; capacity: number; floor_block?: string; map_url?: string
+  }>
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: cel } = await sc.from('celebrations').select('user_id').eq('id', celebrationId).single()
+  if (!cel || cel.user_id !== user.id) return { error: 'No access' }
+
+  const records = rooms.map(r => ({
+    celebration_id: celebrationId,
+    name: r.name.trim(),
+    room_type: r.room_type,
+    capacity: r.capacity,
+    floor_block: r.floor_block?.trim() || null,
+    map_url: r.map_url?.trim() || null,
+  }))
+
+  const { data, error } = await sc.from('celebration_rooms').insert(records).select('id, name, room_type, capacity, floor_block, map_url')
+  return error ? { error: error.message } : { ok: true, rooms: data }
+}
+
+// ── Remarks ────────────────────────────────────────────────────
+export async function addRemark(celebrationId: string, data: {
+  body: string; category: string; is_for_agency: boolean
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: remark, error } = await sc.from('celebration_remarks').insert({
+    celebration_id: celebrationId,
+    user_id: user.id,
+    body: data.body.trim(),
+    category: data.category,
+    is_for_agency: data.is_for_agency,
+  }).select('id').single()
+  return error ? { error: error.message } : { id: remark.id }
+}
+
+export async function deleteRemark(remarkId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_remarks').delete().eq('id', remarkId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Partner Invite ─────────────────────────────────────────────
+export async function getPartnerInviteToken(celebrationId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: cel, error } = await sc.from('celebrations')
+    .select('id, user_id, partner_invite_token')
+    .eq('id', celebrationId).eq('user_id', user.id).single()
+  if (error || !cel) return { error: 'No access' }
+  if (cel.partner_invite_token) return { token: cel.partner_invite_token as string }
+  const token = crypto.randomUUID()
+  await sc.from('celebrations').update({ partner_invite_token: token }).eq('id', celebrationId)
+  return { token }
+}
+
+export async function acceptPartnerInvite(token: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { data: cel } = await sc.from('celebrations')
+    .select('id, user_id, name').eq('partner_invite_token', token).single()
+  if (!cel) return { error: 'Invalid or expired invite' }
+  if (cel.user_id === user.id) return { ok: true, celebrationId: cel.id as string, already: true }
+  const { error } = await sc.from('celebration_members').upsert({
+    celebration_id: cel.id,
+    user_id: user.id,
+    role: 'partner',
+    invited_by: cel.user_id,
+    accepted_at: new Date().toISOString(),
+  }, { onConflict: 'celebration_id,user_id' })
+  if (error) return { error: error.message }
+  return { ok: true, celebrationId: cel.id as string, celebrationName: cel.name as string }
+}
+
+// ── Tasks: update due_date / notes ────────────────────────────
+export async function updateTaskDetails(taskId: string, data: { due_date?: string | null; notes?: string | null }) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_tasks').update({
+    due_date: data.due_date ?? null,
+    notes: data.notes ?? null,
+  }).eq('id', taskId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Feature 9: Bulk add tasks from template ───────────────────
+export async function bulkAddTasks(
+  celebrationId: string,
+  tasks: Array<{ title: string; category: string }>
+) {
+  const sc = createServiceClient()
+  const records = tasks.map(t => ({
+    celebration_id: celebrationId,
+    title: t.title.trim(),
+    category: t.category.trim() || 'General',
+    status: 'pending' as const,
+    ai_generated: false,
+  }))
+  const { error } = await sc.from('celebration_tasks').insert(records)
+  return error ? { error: error.message } : { ok: true, count: records.length }
+}
+
+// ── Feature 11: Bulk update / delete tasks ────────────────────
+export async function bulkUpdateTaskStatus(taskIds: string[], status: 'pending' | 'in_progress' | 'done') {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_tasks').update({ status }).in('id', taskIds)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function bulkDeleteTasks(taskIds: string[]) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_tasks').delete().in('id', taskIds)
+  return error ? { error: error.message } : { ok: true }
 }

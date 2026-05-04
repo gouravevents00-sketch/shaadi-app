@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     const generics = [
       'Event ka status kya hai?',
       'Koi overdue payments hain?',
-      'Agenda review karo',
+      'Review the agenda',
       'Budget overview batao',
       'Vendor contacts dikhao',
     ]

@@ -154,14 +154,14 @@ function BookingCapture({ item, onSave, onSkip }: {
         <span className="text-xs font-semibold text-blue-700">Who did you book?</span>
         <span className="text-xs text-blue-400 ml-auto">optional — skip if not decided yet</span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <input
           ref={nameRef}
           value={name}
           onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onSkip() }}
           placeholder="Vendor / contact name"
-          className="col-span-2 text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-300 placeholder-stone-400"
+          className="sm:col-span-2 text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-300 placeholder-stone-400"
         />
         <input
           value={phone}
@@ -171,7 +171,7 @@ function BookingCapture({ item, onSave, onSkip }: {
           className="text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-300 placeholder-stone-400"
         />
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <input
           value={amount}
           type="number"
@@ -185,7 +185,7 @@ function BookingCapture({ item, onSave, onSkip }: {
           onChange={e => setNotes(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onSkip() }}
           placeholder="Notes (optional)"
-          className="col-span-2 text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-300 placeholder-stone-400"
+          className="sm:col-span-2 text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-300 placeholder-stone-400"
         />
       </div>
       <div className="flex gap-2 justify-end pt-1">

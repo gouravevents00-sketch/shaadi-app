@@ -127,7 +127,7 @@ export default function CommsClient({ eventId, eventName, delegates, guests, vol
   const audienceLabel = AUDIENCES.find(a => a.value === audience)?.label ?? audience
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-stone-900">Comms</h1>
         <p className="text-sm text-stone-400 mt-0.5">{eventName}</p>

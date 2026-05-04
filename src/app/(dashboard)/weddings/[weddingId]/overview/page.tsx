@@ -478,6 +478,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ weddi
         weddingId={weddingId}
         requirements={clientRequirements ?? []}
         existingInvites={clientInvites ?? []}
+        clientInviteToken={(wedding as { client_invite_token?: string | null })?.client_invite_token ?? null}
       />
 
       {/* ── UPCOMING EVENTS ───────────────────────────────────────────────────── */}

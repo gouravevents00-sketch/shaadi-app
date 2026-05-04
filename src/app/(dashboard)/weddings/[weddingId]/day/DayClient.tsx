@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, Circle, CircleDot, Phone, Users, MapPin, Clock, Star, AlertCircle, CalendarDays, ChevronRight, Copy, Check, Plane, BedDouble, Utensils } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Phone, Users, MapPin, Clock, Star, AlertCircle, CalendarDays, ChevronRight, Copy, Check, Plane, BedDouble, Utensils, UserCheck, LogIn, TriangleAlert, ShieldAlert, Info, Plus, X } from 'lucide-react'
 import { updateItem } from '../checklist/actions'
+import { updateVendorCheckin } from '../vendors/actions'
+import { createIncident, resolveIncident } from './actions'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import type { ArrivalRecord, RoomCheckIn, FbRecord } from './page'
@@ -22,6 +24,7 @@ interface CheckItem {
 
 interface Vendor {
   id: string; name: string; category: string; phone: string | null; status: string
+  checkin_status: string | null; arrived_at: string | null
 }
 
 interface Guest {
@@ -47,7 +50,12 @@ const TYPE_COLORS: Record<string, string> = {
   other: 'bg-stone-100 text-stone-600',
 }
 
-export default function DayClient({ weddingId, wedding, today, todayEvents, allEvents, checklistItems, vendors, guests, guestEvents, arrivals = [], roomCheckIns = [], fbCounts = [] }: {
+interface Incident {
+  id: string; title: string; description: string
+  severity: string; status: string; created_at: string
+}
+
+export default function DayClient({ weddingId, wedding, today, todayEvents, allEvents, checklistItems, vendors, guests, guestEvents, arrivals = [], roomCheckIns = [], fbCounts = [], initialIncidents = [] }: {
   weddingId: string
   wedding: Wedding
   today: string
@@ -60,8 +68,14 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
   arrivals?: ArrivalRecord[]
   roomCheckIns?: RoomCheckIn[]
   fbCounts?: FbRecord[]
+  initialIncidents?: Incident[]
 }) {
   const [items, setItems] = useState<CheckItem[]>(checklistItems)
+  const [vendorList, setVendorList] = useState<Vendor[]>(vendors)
+  const [incidents, setIncidents] = useState<Incident[]>(initialIncidents)
+  const [incidentForm, setIncidentForm] = useState<{ title: string; description: string; severity: 'low' | 'medium' | 'high' }>({ title: '', description: '', severity: 'medium' })
+  const [showIncidentForm, setShowIncidentForm] = useState(false)
+  const [loggedIncident, setLoggedIncident] = useState(false)
   const [copied, setCopied] = useState(false)
   const todayDate = new Date(today + 'T00:00:00')
   const isWeddingDay = wedding.wedding_date === today
@@ -85,6 +99,40 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
     }
   }
 
+  async function markVendorArrived(vendor: Vendor) {
+    const next = vendor.checkin_status === 'arrived' ? 'expected' : 'arrived'
+    setVendorList(vs => vs.map(v => v.id === vendor.id ? { ...v, checkin_status: next } : v))
+    const r = await updateVendorCheckin(weddingId, vendor.id, next)
+    if ('error' in r) {
+      toast.error(r.error)
+      setVendorList(vs => vs.map(v => v.id === vendor.id ? { ...v, checkin_status: vendor.checkin_status } : v))
+    } else {
+      toast.success(next === 'arrived' ? `${vendor.name} checked in` : 'Marked expected')
+    }
+  }
+
+  async function handleLogIncident() {
+    if (!incidentForm.title.trim()) { toast.error('Add a title'); return }
+    const r = await createIncident(weddingId, {
+      title: incidentForm.title.trim(),
+      description: incidentForm.description.trim(),
+      severity: incidentForm.severity,
+    })
+    if ('error' in r) { toast.error(r.error); return }
+    setIncidents(prev => [r as Incident, ...prev])
+    setIncidentForm({ title: '', description: '', severity: 'medium' })
+    setShowIncidentForm(false)
+    setLoggedIncident(true)
+    toast.success('Incident logged')
+    setTimeout(() => setLoggedIncident(false), 3000)
+  }
+
+  async function handleResolveIncident(id: string) {
+    const r = await resolveIncident(weddingId, id)
+    if ('error' in r) { toast.error(r.error); return }
+    setIncidents(prev => prev.map(i => i.id === id ? { ...i, status: 'resolved' } : i))
+  }
+
   const pickupGuests = guests.filter(g => g.needs_pickup)
 
   function copyCallSheet() {
@@ -92,7 +140,7 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
       `📋 VENDOR CALL SHEET`,
       `${wedding.bride_name}${wedding.groom_name ? ` & ${wedding.groom_name}` : ''} · ${todayDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`,
       ``,
-      ...vendors.map(v => `${v.category.toUpperCase()}\n${v.name}${v.phone ? `\n📞 ${v.phone}` : '\n⚠️ No phone on file'}`),
+      ...vendorList.map(v => `${v.category.toUpperCase()}\n${v.name}${v.phone ? `\n📞 ${v.phone}` : '\n⚠️ No phone on file'}`),
     ]
     navigator.clipboard.writeText(lines.join('\n'))
     setCopied(true)
@@ -231,11 +279,14 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
       )}
 
       {/* ── CALL SHEET ──────────────────────────────────────────────────────── */}
-      {vendors.length > 0 && (
+      {vendorList.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider flex items-center gap-2">
-              <Phone className="w-3.5 h-3.5" /> Vendor Call Sheet ({vendors.length})
+              <Phone className="w-3.5 h-3.5" /> Vendor Call Sheet ({vendorList.length})
+              <span className="text-emerald-600 font-normal normal-case">
+                {vendorList.filter(v => v.checkin_status === 'arrived').length}/{vendorList.length} on-site
+              </span>
             </h2>
             <button
               onClick={copyCallSheet}
@@ -246,8 +297,8 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
             </button>
           </div>
           <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-            {vendors.map((v, i) => (
-              <div key={v.id} className={`flex items-center gap-3 px-4 py-3 ${i < vendors.length - 1 ? 'border-b border-stone-100' : ''}`}>
+            {vendorList.map((v, i) => (
+              <div key={v.id} className={`flex items-center gap-3 px-4 py-3 ${i < vendorList.length - 1 ? 'border-b border-stone-100' : ''} ${v.checkin_status === 'arrived' ? 'bg-emerald-50/40' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-stone-900 truncate">{v.name}</p>
@@ -257,6 +308,17 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
                   </div>
                   <p className="text-xs text-stone-400">{v.category}</p>
                 </div>
+                <button
+                  onClick={() => markVendorArrived(v)}
+                  title={v.checkin_status === 'arrived' ? 'On-site — click to unmark' : 'Mark arrived'}
+                  className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+                    v.checkin_status === 'arrived'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'text-stone-300 hover:text-emerald-600 hover:bg-emerald-50'
+                  }`}
+                >
+                  {v.checkin_status === 'arrived' ? <UserCheck className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
+                </button>
                 {v.phone ? (
                   <a href={`tel:${v.phone}`}
                     className="flex items-center gap-1.5 text-sm text-rose-700 font-medium hover:text-rose-800 transition-colors flex-shrink-0">
@@ -271,10 +333,10 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
               </div>
             ))}
           </div>
-          {vendors.some(v => !v.phone) && (
+          {vendorList.some(v => !v.phone) && (
             <p className="text-xs text-stone-400 mt-2 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
-              {vendors.filter(v => !v.phone).length} vendor{vendors.filter(v => !v.phone).length > 1 ? 's' : ''} missing phone —
+              {vendorList.filter(v => !v.phone).length} vendor{vendorList.filter(v => !v.phone).length > 1 ? 's' : ''} missing phone —
               <Link href={`/weddings/${weddingId}/vendors`} className="underline hover:text-stone-600">add now</Link>
             </p>
           )}
@@ -391,6 +453,108 @@ export default function DayClient({ weddingId, wedding, today, todayEvents, allE
           </div>
         </div>
       )}
+
+      {/* ── INCIDENTS ────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider flex items-center gap-2">
+            <ShieldAlert className="w-3.5 h-3.5" /> Incident Log
+            {incidents.filter(i => i.status !== 'resolved').length > 0 && (
+              <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">
+                {incidents.filter(i => i.status !== 'resolved').length} open
+              </span>
+            )}
+          </h2>
+          <button
+            onClick={() => setShowIncidentForm(s => !s)}
+            className="flex items-center gap-1 text-xs text-stone-500 hover:text-rose-700 transition-colors font-medium"
+          >
+            {showIncidentForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            {showIncidentForm ? 'Cancel' : 'Log incident'}
+          </button>
+        </div>
+
+        {/* Log form */}
+        {showIncidentForm && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-3 space-y-2">
+            <input
+              placeholder="What happened? (short title) *"
+              value={incidentForm.title}
+              onChange={e => setIncidentForm(f => ({ ...f, title: e.target.value }))}
+              className="w-full text-sm bg-white border border-red-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-red-300"
+            />
+            <textarea
+              placeholder="Details (optional)"
+              value={incidentForm.description}
+              onChange={e => setIncidentForm(f => ({ ...f, description: e.target.value }))}
+              rows={2}
+              className="w-full text-sm bg-white border border-red-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-red-300 resize-none"
+            />
+            <div className="flex items-center gap-2">
+              {(['low', 'medium', 'high'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setIncidentForm(f => ({ ...f, severity: s }))}
+                  className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
+                    incidentForm.severity === s
+                      ? s === 'high' ? 'bg-red-600 text-white'
+                        : s === 'medium' ? 'bg-amber-500 text-white'
+                        : 'bg-stone-400 text-white'
+                      : 'bg-white border border-stone-200 text-stone-500'
+                  }`}
+                >
+                  {s === 'high' ? '🔴' : s === 'medium' ? '🟡' : '🟢'} {s}
+                </button>
+              ))}
+              <button
+                onClick={handleLogIncident}
+                className="ml-auto bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+              >
+                Log
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Incidents list */}
+        {incidents.length === 0 ? (
+          <div className="text-center py-6 text-stone-300">
+            <ShieldAlert className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+            <p className="text-xs">{loggedIncident ? 'Incident logged ✓' : 'No incidents yet'}</p>
+          </div>
+        ) : (
+          <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            {incidents.map((inc, i) => (
+              <div key={inc.id} className={`flex items-start gap-3 px-4 py-3 ${i < incidents.length - 1 ? 'border-b border-stone-100' : ''} ${inc.status === 'resolved' ? 'opacity-50' : ''}`}>
+                {inc.severity === 'high'
+                  ? <TriangleAlert className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  : inc.severity === 'medium'
+                  ? <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  : <Info className="w-4 h-4 text-stone-400 flex-shrink-0 mt-0.5" />}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${inc.status === 'resolved' ? 'line-through text-stone-400' : 'text-stone-900'}`}>{inc.title}</p>
+                  {inc.description && <p className="text-xs text-stone-400 mt-0.5">{inc.description}</p>}
+                  <p className="text-[10px] text-stone-300 mt-1">
+                    {new Date(inc.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                {inc.status !== 'resolved' && (
+                  <button
+                    onClick={() => handleResolveIncident(inc.id)}
+                    className="flex-shrink-0 p-1.5 text-stone-300 hover:text-emerald-500 transition-colors"
+                    title="Mark resolved"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </button>
+                )}
+                {inc.status === 'resolved' && (
+                  <span className="text-[10px] text-emerald-600 font-medium flex-shrink-0">Resolved</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Quick links */}
       <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100">

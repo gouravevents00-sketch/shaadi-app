@@ -9,9 +9,9 @@ import {
   LayoutDashboard, Users, CalendarDays, CheckSquare,
   Wallet, Clock, LogOut, ChevronDown,
   Megaphone, ShoppingBag, Eye, EyeOff, UserCircle, BookTemplate, BarChart2,
-  Mic, ListChecks, LayoutGrid, Sun, Music, Handshake, UserCheck, BedDouble,
+  Mic, ListChecks, Sun, Music, Handshake, UserCheck, BedDouble,
   Trophy, Zap, FileText, MessageSquare, Store, Inbox, Sparkles, Heart, MapPin, Gift,
-  UsersRound,
+  UsersRound, Truck, Clapperboard, Mail,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -32,15 +32,15 @@ interface NavProps {
 // ── Agency nav ────────────────────────────────────────────────
 // Role → which wedding nav slugs are visible (owner/admin/project_head see all)
 const WEDDING_NAV_RBAC: Record<string, string[]> = {
-  coordinator:  ['overview','events','guests','vendors','budget','rooms','day','checklist','comms','documents','deliverables','client','team'],
+  coordinator:  ['overview','events','guests','vendors','budget','rooms','logistics','invitecard','showflow','day','checklist','comms','documents','deliverables','client','team'],
   accounts:     ['overview','budget','vendors','team'],
-  logistics:    ['overview','day','rooms','vendors','checklist','team'],
+  logistics:    ['overview','showflow','day','rooms','logistics','vendors','checklist','team'],
   hospitality:  ['overview','guests','rooms','comms','team'],
   fb_team:      ['overview','checklist','vendors','comms','team'],
   decor_team:   ['overview','checklist','vendors','documents','team'],
-  creative:     ['overview','documents','deliverables','team'],
+  creative:     ['overview','showflow','documents','deliverables','team'],
   photography:  ['overview','deliverables','documents','team'],
-  view_only:    ['overview','events','guests','vendors','budget','rooms','day','checklist','comms','documents','deliverables','team'],
+  view_only:    ['overview','events','guests','vendors','budget','rooms','showflow','day','checklist','comms','documents','deliverables','team'],
 }
 
 const FULL_ACCESS_ROLES = ['owner', 'admin', 'project_head']
@@ -58,6 +58,7 @@ const agencyMainNav = [
   { href: '/dashboard/templates', label: 'Templates',   icon: BookTemplate },
   { href: '/marketplace',         label: 'Marketplace', icon: Store },
   { href: '/leads',               label: 'Leads',       icon: Inbox },
+  { href: '/vivek',               label: 'Vivek AI',    icon: Sparkles },
 ]
 
 const agencyWeddingNav = (id: string) => [
@@ -68,6 +69,9 @@ const agencyWeddingNav = (id: string) => [
   { href: `/weddings/${id}/vendors`,      label: 'Vendors',        icon: ShoppingBag },
   { href: `/weddings/${id}/budget`,       label: 'Finance',        icon: Wallet },
   { href: `/weddings/${id}/rooms`,        label: 'Rooms',          icon: BedDouble },
+  { href: `/weddings/${id}/logistics`,    label: 'Logistics',      icon: Truck },
+  { href: `/weddings/${id}/invitecard`,    label: 'Digital Invite', icon: Mail },
+  { href: `/weddings/${id}/showflow`,      label: 'Show Flow',      icon: Clapperboard },
   { href: `/weddings/${id}/day`,          label: 'Ground Control', icon: Sun },
   { href: `/weddings/${id}/checklist`,    label: 'Checklist',      icon: CheckSquare },
   { href: `/weddings/${id}/comms`,        label: 'Comms',          icon: Megaphone },
@@ -270,7 +274,7 @@ export default function DashboardNav({ user, company, role, isPersonal, personal
             <span className="text-white text-sm font-bold">✦</span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-stone-900 truncate">{company?.name || 'Creative Era OS'}</p>
+            <p className="text-sm font-semibold text-stone-900 truncate">{company?.name || 'UtsavOS'}</p>
             <p className="text-xs text-stone-400 capitalize">{role || 'member'}</p>
           </div>
           <button onClick={toggle} title={hidden ? 'Show amounts' : 'Hide amounts'}

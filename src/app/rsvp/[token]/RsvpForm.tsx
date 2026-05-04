@@ -370,6 +370,11 @@ export default function RsvpForm({
           <p className="text-center text-xs text-stone-400 pb-2">
             You can update your RSVP anytime using this link
           </p>
+          <p className="text-center text-xs text-stone-300 pb-1">
+            By submitting, you consent to your details being used by the wedding planning team
+            for event logistics.{' '}
+            <a href="/privacy" target="_blank" className="underline hover:text-stone-400">Privacy Policy</a>
+          </p>
         </div>
       </div>
     )

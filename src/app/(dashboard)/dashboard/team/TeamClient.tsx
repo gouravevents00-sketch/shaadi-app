@@ -88,10 +88,11 @@ export default function TeamClient({
     else toast.success('Invite revoked')
   }
 
-  const inviteLink = newToken ? `${appUrl}/invite/accept?token=${newToken}` : null
+  const base = (typeof window !== 'undefined' && window.location.origin !== 'null') ? window.location.origin : appUrl
+  const inviteLink = newToken ? `${base}/invite/${newToken}` : null
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -192,7 +193,7 @@ export default function TeamClient({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => {
-                      const link = `${appUrl}/invite/accept?token=${inv.token}`
+                      const link = `${typeof window !== 'undefined' ? window.location.origin : appUrl}/invite/${inv.token}`
                       navigator.clipboard.writeText(link)
                       toast.success('Link copied')
                     }}>

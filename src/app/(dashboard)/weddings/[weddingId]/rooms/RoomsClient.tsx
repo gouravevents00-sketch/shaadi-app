@@ -16,11 +16,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Plus, MoreVertical, Pencil, Trash2, Gift, BedDouble,
-  Search, ChevronDown, ChevronRight, X, Map, Upload, ImageIcon
+  Search, ChevronDown, ChevronRight, X, Map, Upload, ImageIcon,
+  IdCard, Key, CheckCircle2,
 } from 'lucide-react'
 import {
   bulkCreateRooms, updateRoom, deleteRoom,
   allocateGuest, removeAllocation, markKitGiven,
+  markIdCollected, markKeyIssued, markWelcomeKit, markRoomCheckin,
   saveRoomMap, deleteRoomMap,
 } from './actions'
 
@@ -40,6 +42,13 @@ interface Allocation {
   check_out: string
   kit_given: boolean
   kit_given_at: string | null
+  id_collected: boolean
+  id_collected_at: string | null
+  key_issued: boolean
+  key_issued_at: string | null
+  welcome_kit: boolean
+  welcome_kit_at: string | null
+  checked_in_at: string | null
   guests: AllocationGuest | AllocationGuest[] | null
 }
 
@@ -190,12 +199,17 @@ export default function RoomsClient({
     return map
   }, [filteredRooms])
 
-  const stats = useMemo(() => ({
-    total: rooms.length,
-    assigned: rooms.filter(r => r.room_allocations.length > 0).length,
-    available: rooms.filter(r => r.room_allocations.length === 0).length,
-    kitsPending: rooms.flatMap(r => r.room_allocations).filter(a => !a.kit_given).length,
-  }), [rooms])
+  const stats = useMemo(() => {
+    const allAllocs = rooms.flatMap(r => r.room_allocations)
+    return {
+      total: rooms.length,
+      assigned: rooms.filter(r => r.room_allocations.length > 0).length,
+      available: rooms.filter(r => r.room_allocations.length === 0).length,
+      checkedIn: allAllocs.filter(a => !!a.checked_in_at).length,
+      idsPending: allAllocs.filter(a => !a.id_collected).length,
+      keysPending: allAllocs.filter(a => !a.key_issued).length,
+    }
+  }, [rooms])
 
   // ─── Bulk add ────────────────────────────────────────────────
 
@@ -284,8 +298,11 @@ export default function RoomsClient({
       id: result.id!,
       check_in: checkIn,
       check_out: checkOut,
-      kit_given: false,
-      kit_given_at: null,
+      kit_given: false, kit_given_at: null,
+      id_collected: false, id_collected_at: null,
+      key_issued: false, key_issued_at: null,
+      welcome_kit: false, welcome_kit_at: null,
+      checked_in_at: null,
       guests: { id: selectedGuest.id, name: selectedGuest.name, family_members: selectedGuest.family_members },
     }
     setRooms(prev => prev.map(r =>
@@ -324,6 +341,43 @@ export default function RoomsClient({
         } : r
       ))
     }
+  }
+
+  function updateAlloc(roomId: string, allocId: string, patch: Partial<Allocation>) {
+    setRooms(prev => prev.map(r =>
+      r.id === roomId ? {
+        ...r, room_allocations: r.room_allocations.map(a => a.id === allocId ? { ...a, ...patch } : a)
+      } : r
+    ))
+  }
+
+  async function handleIdToggle(roomId: string, alloc: Allocation) {
+    const v = !alloc.id_collected
+    const r = await markIdCollected(weddingId, alloc.id, v)
+    if (r.error) { toast.error(r.error); return }
+    updateAlloc(roomId, alloc.id, { id_collected: v, id_collected_at: v ? new Date().toISOString() : null })
+  }
+
+  async function handleKeyToggle(roomId: string, alloc: Allocation) {
+    const v = !alloc.key_issued
+    const r = await markKeyIssued(weddingId, alloc.id, v)
+    if (r.error) { toast.error(r.error); return }
+    updateAlloc(roomId, alloc.id, { key_issued: v, key_issued_at: v ? new Date().toISOString() : null })
+  }
+
+  async function handleWelcomeKitToggle(roomId: string, alloc: Allocation) {
+    const v = !alloc.welcome_kit
+    const r = await markWelcomeKit(weddingId, alloc.id, v)
+    if (r.error) { toast.error(r.error); return }
+    updateAlloc(roomId, alloc.id, { welcome_kit: v, welcome_kit_at: v ? new Date().toISOString() : null })
+  }
+
+  async function handleCheckinToggle(roomId: string, alloc: Allocation) {
+    const v = !alloc.checked_in_at
+    const r = await markRoomCheckin(weddingId, alloc.id, v)
+    if (r.error) { toast.error(r.error); return }
+    updateAlloc(roomId, alloc.id, { checked_in_at: v ? new Date().toISOString() : null })
+    toast.success(v ? 'Checked in' : 'Check-in reversed')
   }
 
   // ─── Floor maps ──────────────────────────────────────────────
@@ -474,22 +528,33 @@ export default function RoomsClient({
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {alloc && (
-                        <button
-                          onClick={() => handleKitToggle(roomForGuest!.id, alloc)}
-                          title={alloc.kit_given ? 'Kit given' : 'Mark kit given'}
-                          className={`p-1 rounded transition-colors ${alloc.kit_given ? 'text-green-600' : 'text-stone-300 hover:text-stone-500'}`}>
+                    <div className="flex items-center gap-0.5">
+                      {alloc && (<>
+                        <button onClick={() => handleIdToggle(roomForGuest!.id, alloc)}
+                          title={alloc.id_collected ? 'ID collected' : 'Mark ID collected'}
+                          className={`p-1 rounded transition-colors ${alloc.id_collected ? 'text-blue-600' : 'text-stone-300 hover:text-stone-500'}`}>
+                          <IdCard className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleKeyToggle(roomForGuest!.id, alloc)}
+                          title={alloc.key_issued ? 'Key issued' : 'Mark key issued'}
+                          className={`p-1 rounded transition-colors ${alloc.key_issued ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}`}>
+                          <Key className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleWelcomeKitToggle(roomForGuest!.id, alloc)}
+                          title={alloc.welcome_kit ? 'Welcome kit given' : 'Mark welcome kit given'}
+                          className={`p-1 rounded transition-colors ${alloc.welcome_kit ? 'text-purple-600' : 'text-stone-300 hover:text-stone-500'}`}>
                           <Gift className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      {alloc && (
-                        <button
-                          onClick={() => handleRemove(roomForGuest!.id, alloc.id, g.name)}
+                        <button onClick={() => handleCheckinToggle(roomForGuest!.id, alloc)}
+                          title={alloc.checked_in_at ? 'Checked in — click to reverse' : 'Mark checked in'}
+                          className={`p-1 rounded transition-colors ${alloc.checked_in_at ? 'text-emerald-600' : 'text-stone-300 hover:text-stone-500'}`}>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleRemove(roomForGuest!.id, alloc.id, g.name)}
                           className="p-1 text-stone-300 hover:text-red-500 rounded transition-colors">
                           <X className="w-3 h-3" />
                         </button>
-                      )}
+                      </>)}
                     </div>
                   </div>
                 )
@@ -506,7 +571,7 @@ export default function RoomsClient({
         <div className="sticky top-0 z-10 bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs font-semibold text-stone-700 mr-2">
-              {stats.total} rooms · {stats.assigned} assigned · {stats.available} vacant · {stats.kitsPending} kits pending
+              {stats.total} rooms · {stats.assigned} assigned · {stats.available} vacant · {stats.checkedIn} checked in · {stats.idsPending} IDs pending · {stats.keysPending} keys pending
             </p>
             {floors.map(f => (
               <button key={f}
@@ -705,14 +770,30 @@ export default function RoomsClient({
                           <p className="text-[9px] text-stone-400">+{fc}</p>
                         )}
 
-                        {/* Kit icon */}
+                        {/* Hospitality checklist icons */}
                         {alloc && (
-                          <button
-                            onClick={e => { e.stopPropagation(); handleKitToggle(room.id, alloc) }}
-                            title={alloc.kit_given ? 'Kit given — click to undo' : 'Mark kit given'}
-                            className={`mt-1.5 mx-auto transition-colors ${alloc.kit_given ? 'text-green-500' : 'text-stone-200 hover:text-stone-400'}`}>
-                            <Gift className="w-3 h-3" />
-                          </button>
+                          <div className="mt-1.5 flex items-center justify-center gap-0.5">
+                            <button onClick={e => { e.stopPropagation(); handleIdToggle(room.id, alloc) }}
+                              title={alloc.id_collected ? 'ID collected' : 'Mark ID collected'}
+                              className={`transition-colors ${alloc.id_collected ? 'text-blue-500' : 'text-stone-200 hover:text-stone-400'}`}>
+                              <IdCard className="w-2.5 h-2.5" />
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); handleKeyToggle(room.id, alloc) }}
+                              title={alloc.key_issued ? 'Key issued' : 'Mark key issued'}
+                              className={`transition-colors ${alloc.key_issued ? 'text-amber-500' : 'text-stone-200 hover:text-stone-400'}`}>
+                              <Key className="w-2.5 h-2.5" />
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); handleWelcomeKitToggle(room.id, alloc) }}
+                              title={alloc.welcome_kit ? 'Kit given' : 'Mark kit given'}
+                              className={`transition-colors ${alloc.welcome_kit ? 'text-purple-500' : 'text-stone-200 hover:text-stone-400'}`}>
+                              <Gift className="w-2.5 h-2.5" />
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); handleCheckinToggle(room.id, alloc) }}
+                              title={alloc.checked_in_at ? 'Checked in' : 'Mark checked in'}
+                              className={`transition-colors ${alloc.checked_in_at ? 'text-emerald-500' : 'text-stone-200 hover:text-stone-400'}`}>
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
                         )}
 
                         {/* Overflow menu */}

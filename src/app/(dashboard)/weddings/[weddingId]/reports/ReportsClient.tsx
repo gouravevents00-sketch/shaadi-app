@@ -6,7 +6,7 @@ interface Guest {
   id: string; name: string; phone: string | null; email: string | null
   side: string; is_vip: boolean; dietary: string; dietary_notes: string | null
   plus_count: number; rsvp_submitted_at: string | null; needs_pickup: boolean
-  arrival_mode: string | null; arrival_date: string | null; departure_date: string | null; notes: string | null
+  arrival_mode: string | null; notes: string | null
 }
 interface GuestEvent { guest_id: string; event_id: string; rsvp_status: string }
 interface Event { id: string; name: string; date: string; start_time: string | null; type: string }
@@ -70,7 +70,7 @@ export default function ReportsClient({
       if (!geByGuest[ge.guest_id]) geByGuest[ge.guest_id] = []
       geByGuest[ge.guest_id].push(ge)
     }
-    const header: CsvCell[] = ['Name', 'Side', 'Phone', 'Email', 'VIP', 'Dietary', 'Dietary Notes', '+Plus', 'RSVP', 'Pickup Needed', 'Arrival Mode', 'Arrival Date', 'Departure Date', 'Notes', ...events.map(e => `${e.name} RSVP`)]
+    const header: CsvCell[] = ['Name', 'Side', 'Phone', 'Email', 'VIP', 'Dietary', 'Dietary Notes', '+Plus', 'RSVP', 'Pickup Needed', 'Arrival Mode', 'Notes', ...events.map(e => `${e.name} RSVP`)]
     const rows: CsvCell[][] = guests.map(g => [
       g.name, g.side, g.phone ?? '', g.email ?? '',
       g.is_vip ? 'Yes' : 'No',
@@ -78,7 +78,7 @@ export default function ReportsClient({
       g.plus_count ?? 0,
       g.rsvp_submitted_at ? 'Confirmed' : 'Pending',
       g.needs_pickup ? 'Yes' : 'No',
-      g.arrival_mode ?? '', g.arrival_date ?? '', g.departure_date ?? '',
+      g.arrival_mode ?? '',
       g.notes ?? '',
       ...events.map(e => {
         const ge = (geByGuest[g.id] ?? []).find(x => x.event_id === e.id)

@@ -1,7 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MyCelebrationClient from './MyCelebrationClient'
-import EarlyBirdBanner from '@/components/shared/EarlyBirdBanner'
 
 export default async function MyCelebrationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -11,46 +10,51 @@ export default async function MyCelebrationPage({ params }: { params: Promise<{ 
 
   const sc = createServiceClient()
 
-  const [{ data: celebration }, { data: tasks }, { data: connection }] = await Promise.all([
+  const [{ data: celebration }, { data: tasks }, { data: connection }, { data: functions }] = await Promise.all([
     sc.from('celebrations').select('*').eq('id', id).eq('user_id', user.id).single(),
     sc.from('celebration_tasks').select('*').eq('celebration_id', id).order('created_at'),
     sc.from('planner_connections')
       .select('id, status, wedding_id')
       .eq('celebration_id', id).eq('user_id', user.id)
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    sc.from('celebration_functions')
+      .select('id, name, date, start_time, end_time, venue_space, expected_count, sort_order')
+      .eq('celebration_id', id).order('date').order('sort_order'),
   ])
 
   if (!celebration) redirect('/celebrate/new')
 
-  const { data: profile } = await sc.from('users').select('name, email').eq('id', user.id).single()
-
   const plan = (celebration as { plan?: string }).plan ?? 'free'
 
   // Fetch pro data only if on pro plan
-  const [{ data: guests }, { data: budget }] = plan === 'pro'
+  const [
+    { data: guests },
+    { data: budget },
+    { data: vendors },
+    { data: rooms },
+    { data: remarks },
+  ] = plan === 'pro'
     ? await Promise.all([
         sc.from('celebration_guests').select('*').eq('celebration_id', id).order('created_at'),
         sc.from('celebration_budget').select('*').eq('celebration_id', id).order('created_at'),
+        sc.from('celebration_vendors').select('*').eq('celebration_id', id).order('created_at'),
+        sc.from('celebration_rooms').select('*').eq('celebration_id', id).order('created_at'),
+        sc.from('celebration_remarks').select('*').eq('celebration_id', id).order('created_at', { ascending: false }),
       ])
-    : [{ data: [] }, { data: [] }]
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }]
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      {plan === 'free' && (
-        <EarlyBirdBanner
-          userName={profile?.name}
-          userEmail={profile?.email}
-          celebrationName={(celebration as { name?: string }).name}
-        />
-      )}
-      <MyCelebrationClient
-        celebration={celebration}
-        initialTasks={tasks ?? []}
-        initialPlan={plan}
-        initialConnection={connection ?? null}
-        initialGuests={guests ?? []}
-        initialBudget={budget ?? []}
-      />
-    </div>
+    <MyCelebrationClient
+      celebration={celebration}
+      initialTasks={tasks ?? []}
+      initialPlan={plan}
+      initialConnection={connection ?? null}
+      initialGuests={guests ?? []}
+      initialBudget={budget ?? []}
+      initialVendors={vendors ?? []}
+      initialFunctions={functions ?? []}
+      initialRooms={rooms ?? []}
+      initialRemarks={remarks ?? []}
+    />
   )
 }

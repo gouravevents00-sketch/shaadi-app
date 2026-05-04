@@ -49,6 +49,7 @@ export async function middleware(request: NextRequest) {
     if (path.startsWith('/my/')) {
       url.pathname = '/celebrate/signup'
       url.searchParams.set('mode', 'signin')
+      url.searchParams.set('next', path)
     } else {
       url.pathname = '/login'
       url.searchParams.set('next', path)

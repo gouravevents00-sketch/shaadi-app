@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import Link from 'next/link'
-import { Plus, Pencil, Trash2, CalendarDays, MapPin, Users, Zap, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, CalendarDays, MapPin, Users, Zap } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog'
@@ -15,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { createEvent, updateEvent, deleteEvent, bulkCreateEvents } from './actions'
 import SmartDatePicker from '@/components/shared/SmartDatePicker'
+import EventDrawer from './EventDrawer'
 
 interface Event {
   id: string
@@ -99,6 +99,7 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
   const [form, setForm] = useState(empty)
   const [loading, setLoading] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [drawerEvent, setDrawerEvent] = useState<Event | null>(null)
 
   function set(key: string, value: string | number) {
     setForm(f => ({ ...f, [key]: value }))
@@ -192,7 +193,8 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
                 {byDate[date]
                   .sort((a, b) => a.start_time.localeCompare(b.start_time))
                   .map(ev => (
-                    <div key={ev.id} className="bg-white border border-stone-200 rounded-xl p-4 flex items-start gap-4">
+                    <div key={ev.id} className="bg-white border border-stone-200 rounded-xl p-4 flex items-start gap-4 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all"
+                      onClick={() => setDrawerEvent(ev)}>
                       <div className="w-16 text-right flex-shrink-0">
                         <p className="text-sm font-semibold text-stone-800">{formatTime(ev.start_time)}</p>
                         {ev.end_time && ev.end_time !== ev.start_time && (
@@ -210,10 +212,7 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
                         </div>
                         {ev.notes && <p className="text-xs text-stone-400 mt-1">{ev.notes}</p>}
                       </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Link href={`/weddings/${weddingId}/events/${ev.id}`}>
-                          <Button size="icon-sm" variant="ghost" title="Open workspace"><ExternalLink className="w-3.5 h-3.5 text-stone-400" /></Button>
-                        </Link>
+                      <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <Button size="icon-sm" variant="ghost" onClick={() => openEdit(ev)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button size="icon-sm" variant="ghost" onClick={() => setDeleteId(ev.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -309,6 +308,17 @@ export default function EventsClient({ weddingId, initialEvents, defaultVenue, d
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Event workspace drawer */}
+      {drawerEvent && (
+        <EventDrawer
+          key={drawerEvent.id}
+          open={!!drawerEvent}
+          onClose={() => setDrawerEvent(null)}
+          weddingId={weddingId}
+          event={drawerEvent}
+        />
+      )}
     </div>
   )
 }

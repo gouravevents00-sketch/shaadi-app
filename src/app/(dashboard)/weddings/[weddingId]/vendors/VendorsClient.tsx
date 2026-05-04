@@ -2,11 +2,11 @@
 
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, ChevronDown, ChevronRight, Trash2, Phone, Mail, IndianRupee, CalendarClock, CheckCircle2, Circle, X, Pencil } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Trash2, Phone, Mail, IndianRupee, CalendarClock, CheckCircle2, Circle, X, Pencil, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment, toggleVendorEvent } from './actions'
+import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment, toggleVendorEvent, updateVendorCheckin } from './actions'
 import { usePrivacy } from '@/contexts/PrivacyContext'
 import DocumentsPanel from '@/components/shared/DocumentsPanel'
 import SmartDatePicker from '@/components/shared/SmartDatePicker'
@@ -23,6 +23,8 @@ interface Vendor {
   contact_name: string | null; phone: string | null; email: string | null
   total_amount: number; paid_amount: number
   status: 'enquired' | 'booked' | 'confirmed' | 'paid' | 'cancelled'
+  checkin_status: string | null
+  arrived_at: string | null
   contract_url: string | null; notes: string | null; created_at: string
 }
 
@@ -141,7 +143,8 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
     const tmp: Vendor = {
       id: 'tmp-' + Date.now(), wedding_id: weddingId, name: addName, category: cat,
       contact_name: null, phone: null, email: null, total_amount: total, paid_amount: 0,
-      status: 'enquired', contract_url: null, notes: null, created_at: new Date().toISOString()
+      status: 'enquired', checkin_status: null, arrived_at: null,
+      contract_url: null, notes: null, created_at: new Date().toISOString()
     }
     setVendors(vs => [...vs, tmp])
     setAddName(''); setAddTotal(''); setAddingCat(null)
@@ -149,6 +152,19 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
     if ('error' in res) { toast.error(res.error); setVendors(vs => vs.filter(v => v.id !== tmp.id)); return }
     setVendors(vs => vs.map(v => v.id === tmp.id ? { ...v, id: res.id! } : v))
     setExpanded(s => { const n = new Set(s); n.add(res.id!); return n })
+  }
+
+  const CHECKIN_CYCLE = ['expected', 'arrived', 'left', 'no_show']
+  async function cycleCheckin(vendor: Vendor) {
+    const cur = vendor.checkin_status ?? 'expected'
+    const idx = CHECKIN_CYCLE.indexOf(cur)
+    const next = CHECKIN_CYCLE[(idx + 1) % CHECKIN_CYCLE.length]
+    setVendors(vs => vs.map(v => v.id === vendor.id ? { ...v, checkin_status: next } : v))
+    const res = await updateVendorCheckin(weddingId, vendor.id, next)
+    if ('error' in res) {
+      toast.error(res.error)
+      setVendors(vs => vs.map(v => v.id === vendor.id ? { ...v, checkin_status: cur } : v))
+    }
   }
 
   async function cycleStatus(vendor: Vendor) {
@@ -401,6 +417,7 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
                     expanded={expanded.has(v.id)}
                     onToggle={() => toggleExpand(v.id)}
                     onCycleStatus={() => cycleStatus(v)}
+                    onCycleCheckin={() => cycleCheckin(v)}
                     onDelete={() => handleDeleteVendor(v.id)}
                     onFieldSave={(field, val) => handleFieldSave(v, field as keyof Vendor, val)}
                     onAddPayment={(data) => handleAddPayment(v.id, data)}
@@ -486,7 +503,7 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
 
 // ─── VendorRow ─────────────────────────────────────────────────────────────
 
-function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onToggleEvent, expanded, onToggle, onCycleStatus, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates, canSeeAmounts = true }: {
+function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onToggleEvent, expanded, onToggle, onCycleStatus, onCycleCheckin, onDelete, onFieldSave, onAddPayment, onTogglePaid, onDeletePayment, quickDates, canSeeAmounts = true }: {
   vendor: Vendor
   weddingId: string
   payments: Payment[]
@@ -496,6 +513,7 @@ function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onTo
   expanded: boolean
   onToggle: () => void
   onCycleStatus: () => void
+  onCycleCheckin: () => void
   onDelete: () => void
   onFieldSave: (field: string, value: string | number | null) => void
   onAddPayment: (data: { amount: number; due_date: string; mode?: string }) => void
@@ -538,6 +556,19 @@ function VendorRow({ vendor, weddingId, payments, events, assignedEventIds, onTo
             ))}
             {assignedEventIds.size > 3 && <span className="text-[10px] text-stone-400">+{assignedEventIds.size - 3}</span>}
           </div>
+        )}
+        {vendor.checkin_status && vendor.checkin_status !== 'expected' && (
+          <button
+            onClick={e => { e.stopPropagation(); onCycleCheckin() }}
+            title={`Check-in: ${vendor.checkin_status} — click to cycle`}
+            className={`p-1 rounded-full transition-colors flex-shrink-0 ${
+              vendor.checkin_status === 'arrived' ? 'text-emerald-600 bg-emerald-50' :
+              vendor.checkin_status === 'left'    ? 'text-blue-500 bg-blue-50' :
+              vendor.checkin_status === 'no_show' ? 'text-red-400 bg-red-50' : 'text-stone-300'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+          </button>
         )}
         <button
           onClick={e => { e.stopPropagation(); onCycleStatus() }}

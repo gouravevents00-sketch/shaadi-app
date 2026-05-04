@@ -45,6 +45,54 @@ function fmtAgo(d: string) {
   return `${days}d ago`
 }
 
+// ── Lead Heat Score ────────────────────────────────────────────
+// Score 0–100 based on urgency, budget, guest count, freshness
+function computeLeadScore(lead: Lead): { score: number; label: string; color: string; flames: number } {
+  let score = 0
+  const cel = lead.celebration
+
+  // 1. Days until event (most important — 40 pts)
+  if (cel?.event_date) {
+    const days = Math.ceil((new Date(cel.event_date).getTime() - Date.now()) / 86400000)
+    if (days < 0) score += 0          // already passed
+    else if (days <= 30) score += 40  // very urgent
+    else if (days <= 90) score += 30  // urgent
+    else if (days <= 180) score += 20 // planning phase
+    else score += 10                  // early planning
+  } else {
+    score += 5 // no date = low urgency signal
+  }
+
+  // 2. Budget (25 pts)
+  const budget = cel?.budget || 0
+  if (budget >= 2000000) score += 25       // 20L+
+  else if (budget >= 1000000) score += 20  // 10L+
+  else if (budget >= 500000) score += 15   // 5L+
+  else if (budget > 0) score += 10         // some budget
+  else score += 5                          // no budget info (still a lead)
+
+  // 3. Guest count (20 pts)
+  const guests = cel?.guest_count || 0
+  if (guests >= 500) score += 20
+  else if (guests >= 300) score += 15
+  else if (guests >= 100) score += 10
+  else if (guests > 0) score += 5
+
+  // 4. Freshness (15 pts) — leads that came in recently
+  const daysSinceInquiry = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000)
+  if (daysSinceInquiry === 0) score += 15
+  else if (daysSinceInquiry <= 2) score += 12
+  else if (daysSinceInquiry <= 7) score += 8
+  else score += 3
+
+  const clamped = Math.min(100, score)
+  const flames = clamped >= 80 ? 3 : clamped >= 50 ? 2 : 1
+  const label = clamped >= 80 ? 'Hot lead' : clamped >= 50 ? 'Warm' : 'Cool'
+  const color = clamped >= 80 ? 'text-red-600 bg-red-50 border-red-100' : clamped >= 50 ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-stone-500 bg-stone-50 border-stone-100'
+
+  return { score: clamped, label, color, flames }
+}
+
 export default function LeadsClient({ initialLeads, progressMap = {} }: {
   initialLeads: Lead[]
   progressMap?: Record<string, ProgressInfo>
@@ -173,6 +221,14 @@ export default function LeadsClient({ initialLeads, progressMap = {} }: {
                       <span className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-medium">
                         {TYPE_LABELS[lead.celebration?.type ?? ''] || lead.celebration?.type || 'Event'}
                       </span>
+                      {(() => {
+                        const { label, color, flames, score } = computeLeadScore(lead)
+                        return (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${color}`}>
+                            {'🔥'.repeat(flames)} {label} · {score}
+                          </span>
+                        )
+                      })()}
                     </div>
                     <p className="text-xs text-stone-400 mt-0.5 flex items-center gap-1">
                       <User className="w-3 h-3" /> {lead.client_email || 'Unknown'} · {fmtAgo(lead.created_at)}

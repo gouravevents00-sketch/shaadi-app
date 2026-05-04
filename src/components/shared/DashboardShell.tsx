@@ -55,7 +55,7 @@ export default function DashboardShell({ user, company, role, isPersonal, person
                 <span className="text-white text-xs font-bold">✦</span>
               </div>
               <span className="text-sm font-semibold text-stone-900">
-                {isPersonal ? 'My Wedding' : (company?.name || 'Creative Era OS')}
+                {isPersonal ? 'My Wedding' : (company?.name || 'UtsavOS')}
               </span>
             </div>
           </div>

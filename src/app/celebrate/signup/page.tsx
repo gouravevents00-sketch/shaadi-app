@@ -19,6 +19,7 @@ function SignupForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>(
     searchParams.get('mode') === 'signin' ? 'signin' : 'signup'
   )
+  const next = searchParams.get('next') || ''
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,7 +38,7 @@ function SignupForm() {
       setMode('signin')
     } else {
       toast.success('Welcome! Account created.')
-      router.push('/celebrate/new')
+      router.push('/celebrate/new')  // new account — always start fresh
     }
     setLoading(false)
   }
@@ -47,7 +48,8 @@ function SignupForm() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { toast.error(error.message); setLoading(false); return }
-    router.push('/celebrate/new')
+    router.push(next || '/my')
+    router.refresh()
   }
 
   return (

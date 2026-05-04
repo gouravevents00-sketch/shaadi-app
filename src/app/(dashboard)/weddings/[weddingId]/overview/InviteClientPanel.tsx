@@ -18,6 +18,7 @@ interface Props {
   weddingId: string
   requirements: Requirement[]
   existingInvites: { email: string; accepted_at: string | null; token: string }[]
+  clientInviteToken?: string | null
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -31,15 +32,17 @@ const STATUS_LABEL: Record<string, string> = {
   done: 'Done',
 }
 
-export default function InviteClientPanel({ weddingId, requirements, existingInvites }: Props) {
+export default function InviteClientPanel({ weddingId, requirements, existingInvites, clientInviteToken }: Props) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [generatedLink, setGeneratedLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [showReqs, setShowReqs] = useState(false)
+  const [masterCopied, setMasterCopied] = useState(false)
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const masterLink = clientInviteToken ? `${baseUrl}/client-onboard/${clientInviteToken}` : null
 
   const accepted = existingInvites.filter(i => i.accepted_at)
   const pending  = existingInvites.filter(i => !i.accepted_at)
@@ -112,6 +115,25 @@ export default function InviteClientPanel({ weddingId, requirements, existingInv
       {/* Expanded */}
       {open && (
         <div className="p-4 space-y-4">
+          {/* Master form invite link — NEW */}
+          {masterLink && (
+            <div className="bg-purple-50 border border-purple-100 rounded-xl p-3.5">
+              <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">Client Onboarding Link (New)</p>
+              <p className="text-xs text-purple-600 mb-2.5">Client yeh link khol ke apni details bharta hai → uska personal dashboard + aapke saath connected</p>
+              <div className="flex items-center gap-2 bg-white border border-purple-200 rounded-lg px-3 py-2">
+                <code className="text-xs text-stone-600 flex-1 truncate">{masterLink}</code>
+                <button onClick={async () => {
+                  await navigator.clipboard.writeText(masterLink)
+                  setMasterCopied(true)
+                  toast.success('Link copied!')
+                  setTimeout(() => setMasterCopied(false), 2000)
+                }} className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 flex-shrink-0 font-medium">
+                  {masterCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {masterCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          )}
           {/* Accepted clients */}
           {accepted.length > 0 && (
             <div>

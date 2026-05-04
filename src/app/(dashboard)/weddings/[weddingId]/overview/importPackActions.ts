@@ -14,6 +14,7 @@ export interface GuestRow {
   dietary: string
   dietary_notes: string
   family_group: string
+  plus_count: number
   notes: string
 }
 
@@ -119,6 +120,7 @@ async function importGuests(
       dietary:       normDietary(r.dietary ?? ''),
       dietary_notes: r.dietary_notes?.trim() || null,
       family_group:  r.family_group?.trim() || null,
+      plus_count:    Number(r.plus_count) || 0,
       notes:         r.notes?.trim() || null,
     }
 

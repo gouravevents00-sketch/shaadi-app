@@ -32,18 +32,26 @@ function parseExcel(file: File): Promise<ImportRow[]> {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array' })
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' })
+        const ws = wb.Sheets[wb.SheetNames.find(n => n.toLowerCase().includes('guest')) ?? wb.SheetNames[0]]
+
+        // Smart detection: new template has headers at row 4 (range:3); old at row 1 (range:0)
+        let rows: Record<string, string>[] = []
+        for (const range of [3, 0]) {
+          const r = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '', range })
+          if (r.length > 0 && ('Name' in r[0] || 'Name *' in r[0] || 'Phone' in r[0])) { rows = r; break }
+        }
 
         const parsed: ImportRow[] = rows.map(row => ({
-          name: String(row['Name'] || row['name'] || ''),
-          phone: String(row['Phone'] || row['phone'] || ''),
-          email: String(row['Email'] || row['email'] || ''),
-          side: String(row['Side'] || row['side'] || 'both').toLowerCase(),
-          is_vip: ['yes', 'true', '1', 'y'].includes(String(row['VIP'] || row['vip'] || 'no').toLowerCase()),
-          dietary: String(row['Dietary'] || row['dietary'] || 'veg').toLowerCase(),
+          name:          String(row['Name'] || row['Name *'] || row['name'] || ''),
+          phone:         String(row['Phone'] || row['phone'] || ''),
+          email:         String(row['Email'] || row['email'] || ''),
+          side:          String(row['Side'] || row['Side *'] || row['side'] || 'both').toLowerCase(),
+          is_vip:        ['yes', 'true', '1', 'y'].includes(String(row['VIP'] || row['vip'] || 'no').toLowerCase()),
+          dietary:       String(row['Dietary'] || row['dietary'] || 'veg').toLowerCase(),
           dietary_notes: String(row['Dietary Notes'] || row['dietary_notes'] || ''),
-          notes: String(row['Notes'] || row['notes'] || ''),
+          family_group:  String(row['Family Group'] || row['family_group'] || ''),
+          plus_count:    Number(row['Plus Count'] || row['plus_count'] || 0),
+          notes:         String(row['Notes'] || row['notes'] || ''),
         })).filter(r => r.name.trim())
 
         resolve(parsed)

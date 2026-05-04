@@ -51,7 +51,7 @@ export default function WelcomeScreen({ canCreate }: { canCreate: boolean }) {
             <div className="w-14 h-14 rounded-2xl bg-rose-700 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-stone-900">Welcome to Creative Era OS!</h2>
+            <h2 className="text-2xl font-bold text-stone-900">Welcome to UtsavOS!</h2>
             <p className="text-stone-500 text-sm mt-2">Your account is set up. Where do you want to start?</p>
           </div>
         </>

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Creative Era OS",
+  title: "UtsavOS",
   description: "Event & Wedding Management Platform",
 };
 

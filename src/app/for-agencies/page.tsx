@@ -66,7 +66,7 @@ export default function ForAgenciesPage() {
           <div className="w-7 h-7 rounded-lg bg-rose-700 flex items-center justify-center">
             <span className="text-white text-xs font-bold">✦</span>
           </div>
-          <span className="font-semibold text-stone-900 text-sm">Creative Era OS</span>
+          <span className="font-semibold text-stone-900 text-sm">UtsavOS</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm text-stone-600 hover:text-stone-900">Sign in</Link>
@@ -86,7 +86,7 @@ export default function ForAgenciesPage() {
           <span className="text-rose-700">From planning to post-event.</span>
         </h1>
         <p className="text-lg text-stone-500 max-w-2xl mx-auto mb-8">
-          Creative Era OS is the all-in-one platform for wedding planners and event management agencies — team management, guest ops, vendor payments, AI assistant, and more.
+          UtsavOS is the all-in-one platform for wedding planners and event management agencies — team management, guest ops, vendor payments, AI assistant, and more.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/signup" className="inline-flex items-center justify-center gap-2 bg-rose-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-rose-800 transition-colors">
@@ -186,7 +186,7 @@ export default function ForAgenciesPage() {
       {/* CTA strip */}
       <section className="bg-stone-900 py-14 px-6 text-center">
         <h2 className="text-2xl font-bold text-white mb-3">Ready to run smarter events?</h2>
-        <p className="text-stone-400 mb-6 text-sm">Join agencies across India already using Creative Era OS</p>
+        <p className="text-stone-400 mb-6 text-sm">Join agencies across India already using UtsavOS</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/signup" className="inline-flex items-center justify-center gap-2 bg-rose-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-rose-800">
             Start free trial <ArrowRight className="w-4 h-4" />
@@ -197,7 +197,7 @@ export default function ForAgenciesPage() {
 
       {/* Footer */}
       <footer className="border-t border-stone-100 px-6 py-6 text-center">
-        <p className="text-xs text-stone-400">© 2026 Creative Era OS · <Link href="/celebrate" className="hover:text-stone-600">For personal planning →</Link></p>
+        <p className="text-xs text-stone-400">© 2026 UtsavOS · <Link href="/celebrate" className="hover:text-stone-600">For personal planning →</Link></p>
       </footer>
     </div>
   )

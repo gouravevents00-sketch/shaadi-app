@@ -113,8 +113,8 @@ export default function DocumentsClient({ weddingId, weddingName, initialDocs }:
   const totalDocs = docs.length
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Documents</h1>
           <p className="text-sm text-stone-400 mt-0.5">{weddingName} · {totalDocs} file{totalDocs !== 1 ? 's' : ''}</p>

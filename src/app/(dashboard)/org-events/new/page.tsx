@@ -69,7 +69,7 @@ function TypePicker({ onSelect }: { onSelect: (sub: EventSubType) => void }) {
   const router = useRouter()
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <div className="mb-2">
         <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-600 mb-5 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -201,7 +201,7 @@ function DetailsForm({ sub, onBack }: { sub: EventSubType; onBack: () => void })
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
       <div className="mb-8">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-5 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Change event type
