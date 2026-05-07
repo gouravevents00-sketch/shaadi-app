@@ -9,12 +9,24 @@ export default async function BudgetCalcPage({ params }: { params: Promise<{ id:
   if (!user) redirect(`/celebrate/signup?next=/my/${id}/tools/budget-calc`)
 
   const sc = createServiceClient()
-  const { data: celebration } = await sc
-    .from('celebrations')
-    .select('id, bride_name, groom_name, guest_count, city, wedding_style')
-    .eq('id', id).eq('user_id', user.id).single()
+  const [{ data: celebration }, { data: functions }, { data: budgetItems }] = await Promise.all([
+    sc.from('celebrations')
+      .select('id, bride_name, groom_name, guest_count, city, venue, wedding_style, event_date')
+      .eq('id', id).eq('user_id', user.id).single(),
+    sc.from('celebration_functions')
+      .select('id, name, date').eq('celebration_id', id).order('date'),
+    sc.from('celebration_budget')
+      .select('id, category, label, estimated, actual, status').eq('celebration_id', id),
+  ])
 
   if (!celebration) redirect('/celebrate/new')
 
-  return <BudgetCalcClient celebrationId={id} celebration={celebration} />
+  return (
+    <BudgetCalcClient
+      celebrationId={id}
+      celebration={celebration}
+      functions={functions ?? []}
+      budgetItems={budgetItems ?? []}
+    />
+  )
 }
