@@ -71,6 +71,8 @@ export default function BudgetCalcClient({ celebrationId, celebration }: { celeb
   const [budget, setBudget] = useState('')
   const [allocGuests, setAllocGuests] = useState(String(celebration.guest_count ?? 150))
   const [allocOutstation, setAllocOutstation] = useState(20)
+  const [allocCity, setAllocCity] = useState<'metro' | 'tier2' | 'tier3'>('tier2')
+  const [allocStyle, setAllocStyle] = useState(celebration.wedding_style ?? 'traditional')
 
   const factor = STYLES.find(s => s.value === style)?.factor ?? 1.0
 
@@ -92,18 +94,38 @@ export default function BudgetCalcClient({ celebrationId, celebration }: { celeb
   const totalMin = estimates.reduce((s, e) => s + e.min, 0)
   const totalMax = estimates.reduce((s, e) => s + e.max, 0)
 
-  // Allocate mode calculation
+  // Allocate mode — derive proportions from actual cost data, then scale to budget
   const allocations = useMemo(() => {
     const total = parseInt(budget.replace(/,/g, '')) || 0
     const ag = parseInt(allocGuests) || 150
-    return CATEGORIES.map(cat => ({
-      ...cat,
-      allocated: Math.round(total * cat.share / 100),
-      perPerson: cat.perPlate
-        ? Math.round((total * cat.share / 100) / (cat.accommodation ? Math.round(ag * allocOutstation / 100) || 1 : ag))
-        : null,
-    }))
-  }, [budget, allocGuests, allocOutstation])
+    const af = STYLES.find(s => s.value === allocStyle)?.factor ?? 1.0
+    const outstationCount = Math.round(ag * allocOutstation / 100) || 1
+
+    // Step 1: compute midpoint estimate for each category (realistic baseline)
+    const midpoints = CATEGORIES.map(cat => {
+      const [rawMin, rawMax] = cat[allocCity]
+      const mid = ((rawMin + rawMax) / 2) * af
+      let val = cat.perPlate
+        ? mid * (cat.accommodation ? outstationCount : ag)
+        : mid
+      return { cat, mid: val }
+    })
+
+    const totalMid = midpoints.reduce((s, m) => s + m.mid, 0)
+
+    // Step 2: scale each to fit user's budget proportionally
+    return midpoints.map(({ cat, mid }) => {
+      const allocated = totalMid > 0 ? Math.round((mid / totalMid) * total) : 0
+      const perPersonCount = cat.accommodation ? outstationCount : ag
+      return {
+        ...cat,
+        midEstimate: Math.round(mid),
+        allocated,
+        pct: totalMid > 0 ? Math.round((mid / totalMid) * 100) : 0,
+        perPerson: cat.perPlate ? Math.round(allocated / perPersonCount) : null,
+      }
+    })
+  }, [budget, allocGuests, allocOutstation, allocCity, allocStyle])
 
   function handleGuestInput(val: string) {
     setGuestInput(val)
@@ -259,32 +281,56 @@ export default function BudgetCalcClient({ celebrationId, celebration }: { celeb
       {/* ── ALLOCATE MODE ── */}
       {mode === 'allocate' && (
         <>
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-4">
+          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-5">
+            {/* Budget input */}
             <div>
               <label className="text-sm font-semibold text-stone-700 block mb-1.5">My total budget (₹)</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm font-medium">₹</span>
-                <input
-                  type="number" value={budget} onChange={e => setBudget(e.target.value)}
+                <input type="number" value={budget} onChange={e => setBudget(e.target.value)}
                   placeholder="e.g. 2500000"
-                  className="w-full pl-7 pr-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-emerald-400 font-medium"
-                />
+                  className="w-full pl-7 pr-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-emerald-400 font-medium" />
               </div>
-              {budgetNum > 0 && (
-                <p className="text-xs text-emerald-600 font-medium mt-1">{fmt(budgetNum)} total budget</p>
-              )}
+              {budgetNum > 0 && <p className="text-xs text-emerald-600 font-medium mt-1">{fmt(budgetNum)} total budget</p>}
             </div>
 
+            {/* Guest count */}
             <div>
               <label className="text-sm font-semibold text-stone-700 block mb-1.5">Guest count</label>
-              <input
-                type="number" min={1} max={5000} value={allocGuests}
-                onChange={e => setAllocGuests(e.target.value)}
-                placeholder="150"
-                className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-emerald-400"
-              />
+              <input type="number" min={1} max={5000} value={allocGuests}
+                onChange={e => setAllocGuests(e.target.value)} placeholder="150"
+                className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-emerald-400" />
             </div>
 
+            {/* City */}
+            <div>
+              <label className="text-sm font-semibold text-stone-700 block mb-2">City</label>
+              <div className="grid grid-cols-3 gap-2">
+                {CITY_TIERS.map(c => (
+                  <button key={c.value} onClick={() => setAllocCity(c.value as 'metro' | 'tier2' | 'tier3')}
+                    className={`text-left p-2.5 rounded-xl border-2 transition-all ${allocCity === c.value ? 'border-emerald-600 bg-emerald-50' : 'border-stone-100 hover:border-stone-200'}`}>
+                    <p className={`text-xs font-bold ${allocCity === c.value ? 'text-emerald-700' : 'text-stone-700'}`}>{c.label}</p>
+                    <p className="text-[10px] text-stone-400 mt-0.5 leading-tight">{c.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Style */}
+            <div>
+              <label className="text-sm font-semibold text-stone-700 block mb-2">Wedding style</label>
+              <div className="grid grid-cols-4 gap-2">
+                {STYLES.map(s => (
+                  <button key={s.value} onClick={() => setAllocStyle(s.value)}
+                    className={`p-2 rounded-xl border-2 text-center transition-all ${allocStyle === s.value ? 'border-emerald-600 bg-emerald-50' : 'border-stone-100 hover:border-stone-200'}`}>
+                    <p className="text-lg">{s.emoji}</p>
+                    <p className={`text-[10px] font-semibold mt-0.5 ${allocStyle === s.value ? 'text-emerald-700' : 'text-stone-600'}`}>{s.label}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Outstation */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-semibold text-stone-700">Outstation guests</label>
@@ -296,55 +342,87 @@ export default function BudgetCalcClient({ celebrationId, celebration }: { celeb
             </div>
           </div>
 
-          {budgetNum > 0 ? (
-            <>
-              <div className="bg-emerald-700 rounded-2xl p-5">
-                <p className="text-emerald-200 text-xs font-medium">Your budget</p>
-                <p className="text-white text-2xl font-bold mt-0.5">{fmt(budgetNum)}</p>
-                <p className="text-emerald-300 text-xs mt-1">
-                  ≈ {fmt(Math.round(budgetNum / (parseInt(allocGuests) || 1)))} per guest · {allocGuests} guests
-                </p>
-              </div>
-
-              <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
-                <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider px-5 py-3 border-b border-stone-100">Recommended allocation</p>
-                <div className="divide-y divide-stone-50">
-                  {allocations.map(a => {
-                    const pct = a.share
-                    const ag = parseInt(allocGuests) || 150
-                    const outstationCount = Math.round(ag * allocOutstation / 100)
-                    const perPersonCount = a.accommodation ? outstationCount || 1 : ag
-                    return (
-                      <div key={a.label} className="px-5 py-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base">{a.emoji}</span>
-                            <span className="text-sm font-medium text-stone-700">{a.label}</span>
-                            <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{a.share}%</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-stone-800">{fmt(a.allocated)}</p>
-                            {a.perPlate && a.allocated > 0 && (
-                              <p className="text-[10px] text-stone-400">{fmt(Math.round(a.allocated / perPersonCount))}/person</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w-full bg-stone-100 rounded-full h-1">
-                          <div className="bg-emerald-400 h-1 rounded-full" style={{ width: `${pct * 3}%` }} />
-                        </div>
-                      </div>
-                    )
-                  })}
+          {budgetNum > 0 ? (() => {
+            const totalMidEstimate = allocations.reduce((s, a) => s + a.midEstimate, 0)
+            const health = budgetNum >= totalMidEstimate * 1.1 ? 'comfortable'
+              : budgetNum >= totalMidEstimate * 0.85 ? 'tight'
+              : 'low'
+            const healthConfig = {
+              comfortable: { label: 'Budget looks comfortable', color: 'bg-emerald-600', text: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+              tight:       { label: 'Budget is tight — prioritise carefully', color: 'bg-amber-500', text: 'text-amber-700 bg-amber-50 border-amber-200' },
+              low:         { label: 'Budget may fall short — consider adjusting', color: 'bg-red-500', text: 'text-red-700 bg-red-50 border-red-200' },
+            }
+            const hc = healthConfig[health]
+            return (
+              <>
+                {/* Summary card */}
+                <div className="bg-emerald-700 rounded-2xl p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-emerald-200 text-xs font-medium">Your budget</p>
+                    <p className="text-white text-2xl font-bold mt-0.5">{fmt(budgetNum)}</p>
+                    <p className="text-emerald-300 text-xs mt-1">
+                      ≈ {fmt(Math.round(budgetNum / (parseInt(allocGuests) || 1)))} per guest · {allocGuests} guests
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-emerald-200 text-xs">Realistic estimate</p>
+                    <p className="text-white text-lg font-bold">{fmt(totalMidEstimate)}</p>
+                  </div>
                 </div>
-              </div>
 
-              <p className="text-[11px] text-stone-400 text-center leading-relaxed px-4">
-                Allocation based on typical Indian wedding spending patterns. Adjust per your priorities.
-              </p>
-            </>
-          ) : (
+                {/* Budget health */}
+                <div className={`flex items-center gap-3 border rounded-xl px-4 py-3 ${hc.text}`}>
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${hc.color}`} />
+                  <p className="text-sm font-medium">{hc.label}</p>
+                  {health !== 'comfortable' && (
+                    <p className="text-xs opacity-70 ml-auto">Realistic need: {fmt(totalMidEstimate)}</p>
+                  )}
+                </div>
+
+                {/* Category allocation */}
+                <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
+                  <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider px-5 py-3 border-b border-stone-100">
+                    Recommended allocation
+                  </p>
+                  <div className="divide-y divide-stone-50">
+                    {allocations.map(a => {
+                      const isUnder = a.allocated < a.midEstimate * 0.7
+                      return (
+                        <div key={a.label} className="px-5 py-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-base flex-shrink-0">{a.emoji}</span>
+                              <span className="text-sm font-medium text-stone-700 truncate">{a.label}</span>
+                              <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded flex-shrink-0">{a.pct}%</span>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className={`text-sm font-bold ${isUnder ? 'text-red-600' : 'text-stone-800'}`}>{fmt(a.allocated)}</p>
+                              {a.perPlate && a.allocated > 0 && (
+                                <p className="text-[10px] text-stone-400">{fmt(a.perPerson ?? 0)}/person</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-stone-100 rounded-full h-1.5">
+                              <div className={`h-1.5 rounded-full transition-all ${isUnder ? 'bg-red-400' : 'bg-emerald-400'}`}
+                                style={{ width: `${Math.min(a.pct * 3.3, 100)}%` }} />
+                            </div>
+                            <span className="text-[10px] text-stone-400 flex-shrink-0">typical: {fmt(a.midEstimate)}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-stone-400 text-center leading-relaxed px-4">
+                  Allocation proportional to real {CITY_TIERS.find(c => c.value === allocCity)?.label} city costs for {STYLES.find(s => s.value === allocStyle)?.label.toLowerCase()} weddings. Red = likely insufficient.
+                </p>
+              </>
+            )
+          })() : (
             <div className="text-center py-10 border-2 border-dashed border-stone-200 rounded-2xl">
-              <p className="text-stone-400 text-sm">Enter your budget above to see category allocation</p>
+              <p className="text-stone-400 text-sm">Enter your budget above to see allocation</p>
             </div>
           )}
         </>
