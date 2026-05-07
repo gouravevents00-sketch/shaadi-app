@@ -9,12 +9,13 @@ export default async function DocGenPage({ params }: { params: Promise<{ id: str
   if (!user) redirect(`/celebrate/signup?next=/my/${id}/tools/docs`)
 
   const sc = createServiceClient()
-  const [{ data: celebration }, { data: vendors }] = await Promise.all([
+  const [{ data: celebration }, { data: vendors }, { data: functions }] = await Promise.all([
     sc.from('celebrations').select('*').eq('id', id).eq('user_id', user.id).single(),
     sc.from('celebration_vendors').select('id, name, category, contact_name, phone').eq('celebration_id', id).order('created_at'),
+    sc.from('celebration_functions').select('id, name, date, start_time').eq('celebration_id', id).order('date'),
   ])
 
   if (!celebration) redirect('/celebrate/new')
 
-  return <DocGenClient celebrationId={id} celebration={celebration} vendors={vendors ?? []} />
+  return <DocGenClient celebrationId={id} celebration={celebration} vendors={vendors ?? []} functions={functions ?? []} />
 }

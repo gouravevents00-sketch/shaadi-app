@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, Sparkles, Copy, Check, Download, Loader2 } from 'lucide-react'
 
 type Vendor = { id: string; name: string; category: string; contact_name: string | null; phone: string | null }
+type CelebFunction = { id: string; name: string; date: string; start_time: string | null }
 type Celebration = Record<string, unknown>
 
 const DOC_TYPES = [
@@ -13,7 +14,7 @@ const DOC_TYPES = [
     label: 'Vendor Agreement',
     emoji: '📝',
     desc: 'Formal agreement with scope, payment terms & cancellation policy',
-    fields: ['vendor_name', 'service', 'amount', 'advance', 'event_date', 'special_terms'],
+    fields: ['vendor_name', 'service', 'amount', 'advance', 'special_terms'],
   },
   {
     id: 'invitation_text',
@@ -27,14 +28,14 @@ const DOC_TYPES = [
     label: 'Wedding Vows',
     emoji: '💍',
     desc: 'Personalised wedding vows — traditional, modern, or poetic',
-    fields: ['style', 'who', 'tone'],
+    fields: ['who', 'style'],
   },
   {
-    id: 'checklist_email',
+    id: 'vendor_brief',
     label: 'Vendor Brief Email',
     emoji: '📧',
     desc: 'Professional email briefing a vendor about your event',
-    fields: ['vendor_name', 'service', 'event_date', 'special_instructions'],
+    fields: ['vendor_name', 'service', 'special_instructions'],
   },
   {
     id: 'rsvp_message',
@@ -50,12 +51,27 @@ const DOC_TYPES = [
     desc: 'Post-wedding thank you message for guests and vendors',
     fields: ['recipient'],
   },
+  {
+    id: 'day_checklist',
+    label: 'Day-Of Checklist',
+    emoji: '✅',
+    desc: 'Detailed checklist of tasks for the wedding day',
+    fields: ['function_name'],
+  },
+  {
+    id: 'vendor_call_script',
+    label: 'Vendor Call Script',
+    emoji: '📞',
+    desc: 'Script + questions to ask when calling a vendor for the first time',
+    fields: ['service'],
+  },
 ]
 
-export default function DocGenClient({ celebrationId, celebration, vendors }: {
+export default function DocGenClient({ celebrationId, celebration, vendors, functions }: {
   celebrationId: string
   celebration: Celebration
   vendors: Vendor[]
+  functions: CelebFunction[]
 }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [fields, setFields] = useState<Record<string, string>>({})
@@ -68,8 +84,22 @@ export default function DocGenClient({ celebrationId, celebration, vendors }: {
   const eventDate = (celebration.event_date as string) ?? ''
   const city = (celebration.city as string) ?? ''
   const venue = (celebration.venue as string) ?? ''
+  const guestCount = (celebration.guest_count as number) ?? null
+
+  const coupleInfo = [brideName, groomName].filter(Boolean).join(' & ')
+  const dateStr = eventDate ? new Date(eventDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+  const functionsList = functions.map(f => {
+    const d = f.date ? new Date(f.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+    return `${f.name}${d ? ` (${d})` : ''}`
+  }).join(', ')
 
   const docType = DOC_TYPES.find(d => d.id === selected)
+
+  function selectDoc(id: string) {
+    setSelected(id)
+    setFields({})
+    setOutput('')
+  }
 
   function setField(k: string, v: string) {
     setFields(f => ({ ...f, [k]: v }))
@@ -80,58 +110,96 @@ export default function DocGenClient({ celebrationId, celebration, vendors }: {
     setLoading(true)
     setOutput('')
 
-    const coupleInfo = [brideName, groomName].filter(Boolean).join(' & ')
-    const dateStr = eventDate ? new Date(eventDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+    const contextSuffix = [
+      coupleInfo,
+      dateStr,
+      venue ? `Venue: ${venue}` : '',
+      city,
+      functionsList ? `Functions: ${functionsList}` : '',
+      guestCount ? `${guestCount} guests` : '',
+    ].filter(Boolean).join(' · ')
 
     let prompt = ''
+
     if (selected === 'vendor_agreement') {
       prompt = `Generate a professional vendor agreement in English for an Indian wedding.
 Couple: ${coupleInfo}
-Event date: ${dateStr}${city ? `, ${city}` : ''}${venue ? `, ${venue}` : ''}
+Event date: ${dateStr}${city ? `, ${city}` : ''}${venue ? ` at ${venue}` : ''}
+${functionsList ? `Functions: ${functionsList}` : ''}
 Vendor name: ${fields.vendor_name ?? ''}
 Service: ${fields.service ?? ''}
 Total amount: ₹${fields.amount ?? ''}
 Advance paid: ₹${fields.advance ?? ''}
 Special terms: ${fields.special_terms ?? 'None'}
-Include: scope of work, payment schedule, cancellation policy (30% advance non-refundable), dispute resolution. Format as a formal document with sections.`
+Include: scope of work, payment schedule, cancellation policy (advance non-refundable), force majeure clause, dispute resolution. Format as a formal document with numbered sections and blank lines for signatures.`
+
     } else if (selected === 'invitation_text') {
-      prompt = `Write a beautiful ${fields.style ?? 'traditional'} Indian wedding invitation in English (with a bit of Hindi for warmth).
+      prompt = `Write a beautiful ${fields.style ?? 'traditional'} Indian wedding invitation in English (with a touch of Hindi for warmth).
 Couple: ${coupleInfo}
 Date: ${dateStr}
 Venue: ${venue || 'TBD'}
 City: ${city || ''}
-Make it heartfelt, warm, and ${fields.style === 'modern' ? 'contemporary' : 'elegant and traditional'}.`
+${functionsList ? `Functions/events: ${functionsList}` : ''}
+${guestCount ? `Approximately ${guestCount} guests` : ''}
+Style: ${fields.style === 'modern' ? 'contemporary and stylish' : fields.style === 'poetic' ? 'poetic and lyrical' : fields.style === 'simple' ? 'simple and clean' : 'elegant and traditional'}
+Make it heartfelt, warm, and complete. If there are multiple functions, mention them.`
+
     } else if (selected === 'vow_draft') {
-      prompt = `Write personalised wedding vows for ${fields.who === 'groom' ? groomName || 'the groom' : brideName || 'the bride'}.
-Style: ${fields.tone ?? 'romantic and heartfelt'}
-Partner's name: ${fields.who === 'groom' ? brideName : groomName}
-Keep it personal, genuine, about 150-200 words. Include a mix of promises and feelings. End with a memorable line.`
-    } else if (selected === 'checklist_email') {
-      prompt = `Write a professional and warm email to a vendor for an Indian wedding.
+      const forPerson = fields.who === 'groom' ? (groomName || 'the groom') : (brideName || 'the bride')
+      const toPartner = fields.who === 'groom' ? (brideName || 'the bride') : (groomName || 'the groom')
+      prompt = `Write personalised wedding vows for ${forPerson} addressed to ${toPartner}.
+Style: ${fields.style ?? 'romantic and heartfelt'}
+Keep it personal, genuine, about 150-200 words. Include a mix of promises and feelings. End with a memorable line. Write in first person.`
+
+    } else if (selected === 'vendor_brief') {
+      prompt = `Write a professional and warm briefing email to a vendor for an Indian wedding.
 From: ${coupleInfo}
 To vendor: ${fields.vendor_name ?? 'Vendor'}
 Service: ${fields.service ?? ''}
-Event date: ${dateStr}${venue ? `, ${venue}` : ''}
+Event date: ${dateStr}${venue ? ` at ${venue}` : ''}${city ? `, ${city}` : ''}
+${functionsList ? `Functions they need to cover: ${functionsList}` : ''}
+${guestCount ? `Guest count: approximately ${guestCount}` : ''}
 Special instructions: ${fields.special_instructions ?? 'None'}
-Include event overview, what we need from them, logistics, and contact info placeholder. Tone: professional yet warm.`
+Include event overview, what we need from them, timeline expectations, logistics, and a [placeholder] for contact info. Tone: professional yet warm. Add a clear call to action at the end.`
+
     } else if (selected === 'rsvp_message') {
       prompt = `Write a short, warm WhatsApp message to send to wedding guests for RSVP.
 Wedding: ${coupleInfo}
 Date: ${dateStr}
 Venue: ${venue || 'TBD'}${city ? `, ${city}` : ''}
+${functionsList ? `Events: ${functionsList}` : ''}
 Tone: ${fields.tone ?? 'warm and friendly'}
-Keep it under 100 words. Include a clear call to action to confirm attendance.`
+Keep it under 100 words. Include a clear call to action to confirm attendance with a deadline. Make it feel personal, not like a broadcast.`
+
     } else if (selected === 'thankyou_note') {
       prompt = `Write a heartfelt thank you note from ${coupleInfo} after their wedding.
 For: ${fields.recipient ?? 'guests'}
-Make it warm, personal, about 80-120 words. Express gratitude for their presence and blessings.`
+${venue ? `Venue was: ${venue}` : ''}
+Make it warm, personal, about 80-120 words. Express gratitude for their presence, blessings, and any gifts. ${fields.recipient === 'vendors' ? 'Mention their professional contribution made the day special.' : ''}`
+
+    } else if (selected === 'day_checklist') {
+      const fnName = fields.function_name || (functions[0]?.name ?? 'Wedding day')
+      prompt = `Create a detailed day-of checklist for the "${fnName}" function of ${coupleInfo}'s wedding.
+Date: ${dateStr}
+Venue: ${venue || 'TBD'}${city ? `, ${city}` : ''}
+${guestCount ? `Guest count: ${guestCount}` : ''}
+${functionsList ? `All functions: ${functionsList}` : ''}
+Format as a numbered checklist grouped by time of day (morning, 2-3 hours before, 1 hour before, during, after). Include tasks for couple, family, and vendors. Cover: venue setup, vendor check-ins, décor, catering, sound, photography, logistics, emergency kit.`
+
+    } else if (selected === 'vendor_call_script') {
+      prompt = `Write a vendor call script and checklist of questions for hiring a ${fields.service ?? 'wedding vendor'} for an Indian wedding.
+Couple: ${coupleInfo}
+Event date: ${dateStr}${city ? `, ${city}` : ''}${venue ? ` at ${venue}` : ''}
+${functionsList ? `Functions: ${functionsList}` : ''}
+${guestCount ? `Guest count: ${guestCount}` : ''}
+Include: opening introduction, key questions to ask (availability, packages, experience, deliverables, payment terms, cancellations, references), red flags to watch for, and how to close the call. Format with clear sections.`
     }
 
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt, context: `Wedding document generation for ${coupleInfo}` }),
+        body: JSON.stringify({ message: prompt, context: `Wedding document generation for ${contextSuffix}` }),
       })
       const data = await res.json()
       setOutput(data.reply ?? 'Could not generate. Please try again.')
@@ -165,18 +233,28 @@ Make it warm, personal, about 80-120 words. Express gratitude for their presence
         <Link href={`/my/${celebrationId}/tools`} className="text-stone-400 hover:text-stone-700">
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-stone-900 flex items-center gap-2">
             <FileText className="w-5 h-5 text-amber-600" /> Document Generator
           </h1>
-          <p className="text-xs text-stone-400">AI-powered documents for your wedding</p>
+          <p className="text-xs text-stone-400">AI-powered documents using your celebration details</p>
         </div>
       </div>
+
+      {/* Context chips */}
+      {(coupleInfo || functionsList || venue) && (
+        <div className="flex flex-wrap gap-2">
+          {coupleInfo && <span className="text-[11px] bg-amber-50 border border-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-medium">💑 {coupleInfo}</span>}
+          {dateStr && <span className="text-[11px] bg-stone-50 border border-stone-200 text-stone-600 px-2.5 py-1 rounded-full">📅 {dateStr}</span>}
+          {venue && <span className="text-[11px] bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">✓ {venue}</span>}
+          {functions.length > 0 && <span className="text-[11px] bg-blue-50 border border-blue-100 text-blue-700 px-2.5 py-1 rounded-full">{functions.length} functions</span>}
+        </div>
+      )}
 
       {/* Doc type selector */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {DOC_TYPES.map(doc => (
-          <button key={doc.id} onClick={() => { setSelected(doc.id); setOutput('') }}
+          <button key={doc.id} onClick={() => selectDoc(doc.id)}
             className={`text-left p-4 rounded-xl border-2 transition-all ${selected === doc.id ? 'border-amber-500 bg-amber-50' : 'border-stone-100 bg-white hover:border-stone-200'}`}>
             <div className="flex items-start gap-3">
               <span className="text-2xl flex-shrink-0">{doc.emoji}</span>
@@ -192,7 +270,7 @@ Make it warm, personal, about 80-120 words. Express gratitude for their presence
       {/* Fields */}
       {docType && (
         <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-4">
-          <p className="text-sm font-semibold text-stone-700">{docType.emoji} {docType.label} — Fill in details</p>
+          <p className="text-sm font-semibold text-stone-700">{docType.emoji} {docType.label}</p>
 
           {docType.fields.includes('vendor_name') && (
             <div>
@@ -204,10 +282,7 @@ Make it warm, personal, about 80-120 words. Express gratitude for their presence
                 {vendors.length > 0 && (
                   <select onChange={e => {
                     const v = vendors.find(vv => vv.id === e.target.value)
-                    if (v) {
-                      setField('vendor_name', v.name)
-                      setField('service', v.category)
-                    }
+                    if (v) { setField('vendor_name', v.name); setField('service', v.category) }
                   }} className="text-xs border border-stone-200 rounded-xl px-2 py-2 focus:outline-none text-stone-500">
                     <option value="">From my vendors</option>
                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -247,7 +322,7 @@ Make it warm, personal, about 80-120 words. Express gratitude for their presence
             <div>
               <label className="text-xs font-medium text-stone-600 block mb-1.5">Special terms / notes (optional)</label>
               <textarea value={fields.special_terms ?? ''} onChange={e => setField('special_terms', e.target.value)}
-                placeholder="Any specific clauses, deliverables, or requirements…"
+                placeholder="Any specific deliverables, clauses, or requirements…"
                 rows={2}
                 className="w-full text-sm border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400 resize-none" />
             </div>
@@ -322,6 +397,20 @@ Make it warm, personal, about 80-120 words. Express gratitude for their presence
             </div>
           )}
 
+          {docType.fields.includes('function_name') && functions.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-stone-600 block mb-1.5">Which function?</label>
+              <div className="flex gap-2 flex-wrap">
+                {functions.map(fn => (
+                  <button key={fn.id} onClick={() => setField('function_name', fn.name)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${fields.function_name === fn.name ? 'bg-amber-600 text-white border-amber-600' : 'border-stone-200 text-stone-600 hover:border-amber-300'}`}>
+                    {fn.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button onClick={generate} disabled={loading}
             className="w-full flex items-center justify-center gap-2 bg-amber-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-amber-700 disabled:opacity-60 transition-colors">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -355,7 +444,7 @@ Make it warm, personal, about 80-120 words. Express gratitude for their presence
           </div>
           <div className="px-5 pb-4">
             <button onClick={generate} disabled={loading}
-              className="text-xs text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1">
+              className="text-xs text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1 disabled:opacity-50">
               <Sparkles className="w-3 h-3" /> Regenerate
             </button>
           </div>
