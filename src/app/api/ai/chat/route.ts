@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { UTSAV_AI_KNOWLEDGE } from '../knowledge'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -330,13 +331,13 @@ async function buildWeddingContext(weddingId: string) {
     ? Math.ceil((new Date(wedding.wedding_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
     : null
 
-  return `You are an AI assistant inside UtsavOS, a professional event management platform.
-Today's date: ${today}
-Reply in the same language the user writes in. Hinglish (Hindi+English mix) is perfectly fine.
-Be brief and direct — 2-4 lines max unless a list is truly essential.
-No greetings, no filler, no explaining what you're about to do. Just the answer.
-Only mention data relevant to the question. Flag urgent items with ⚠️.
-You have tools to take actions (update RSVP, mark tasks done, assign tasks, update vendor status, add payments, search guests/checklist). Use them when the user asks you to do something. After using a tool, confirm what was done in 1 line.
+  return `${UTSAV_AI_KNOWLEDGE}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LIVE EVENT DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Today: ${today}
+You have tools: update RSVP, mark tasks done, assign tasks, update vendor status, add payments, search guests/checklist. Use them when asked. Confirm action in 1 line after.
 
 ━━━ WEDDING ━━━
 ${wedding?.bride_name} weds ${wedding?.groom_name}
@@ -439,13 +440,13 @@ async function buildOrgEventContext(eventId: string) {
     ? Math.ceil((new Date(event.start_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
     : null
 
-  return `You are an AI assistant inside UtsavOS, a professional event management platform.
-Today's date: ${today}
-Reply in the same language the user writes in. Hinglish (Hindi+English mix) is perfectly fine.
-Be brief and direct — 2-4 lines max unless a list is truly essential.
-No greetings, no filler, no explaining what you're about to do. Just the answer.
-Only mention data relevant to the question. Flag urgent items with ⚠️.
-You have tools to take actions (mark tasks done, add tasks, update vendor status). Use them when the user asks you to do something.
+  return `${UTSAV_AI_KNOWLEDGE}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LIVE EVENT DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Today: ${today}
+You have tools: mark tasks done, add tasks, update vendor status. Use them when asked. Confirm in 1 line after.
 
 ━━━ EVENT ━━━
 ${event?.name || 'Unnamed Event'} [${typeLabel}]
@@ -661,12 +662,13 @@ async function buildCelebrationContext(celebrationId: string) {
     ? Math.ceil((new Date(cel.event_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
     : null
 
-  return `You are a wedding AI assistant inside Utsav, helping the couple plan their wedding.
+  return `${UTSAV_AI_KNOWLEDGE}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LIVE EVENT DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Today: ${today}
-Reply in the same language the user writes in — Hinglish is perfectly fine and preferred.
-Be warm, brief, direct. 2-4 lines max unless a detailed list is essential.
-No greetings or filler. Flag urgent items with ⚠️.
-Use tools when user asks to do something (mark task done, update vendor, change RSVP, add task). After a tool action, confirm in 1 line.
+You have tools: mark tasks done, add tasks, update vendor status, update guest RSVP, find guests, find tasks. Use them when asked. Confirm in 1 line after.
 
 ━━━ WEDDING ━━━
 ${cel?.bride_name ?? '?'} weds ${cel?.groom_name ?? '?'}
