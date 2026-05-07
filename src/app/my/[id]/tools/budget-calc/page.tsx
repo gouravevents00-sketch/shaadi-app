@@ -1,0 +1,20 @@
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import BudgetCalcClient from './BudgetCalcClient'
+
+export default async function BudgetCalcPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect(`/celebrate/signup?next=/my/${id}/tools/budget-calc`)
+
+  const sc = createServiceClient()
+  const { data: celebration } = await sc
+    .from('celebrations')
+    .select('id, bride_name, groom_name, guest_count, city, wedding_style')
+    .eq('id', id).eq('user_id', user.id).single()
+
+  if (!celebration) redirect('/celebrate/new')
+
+  return <BudgetCalcClient celebrationId={id} celebration={celebration} />
+}
