@@ -109,7 +109,8 @@ UNIVERSAL RED FLAGS (any vendor):
 - Cannot provide 3+ references from recent events
 - Vague about deliverables: "we'll take care of everything"
 - Changes quoted price after verbal agreement
-- Unresponsive or slow to reply during booking phase — will be worse during execution
+- ⚠️ TALKS BIG BUT IS CONFUSED — vendor jo bahot hawa mein baat kare, apni hi service ke baare mein clear nahi hai, contradicts themselves. Overconfidence + vagueness = danger.
+- ⚠️ NOT ORGANISED, SLOW TO RESPOND — jo booking phase mein timely response nahi deta, woh event day pe aur bura karega. Response speed during sales = reliability during execution. This is one of the most reliable predictors of vendor quality.
 - No dedicated point of contact assigned to your event
 - Doesn't confirm participation 48 hours before event when you call
 
@@ -146,10 +147,11 @@ Red flags:
 - No food tasting offered before booking
 - Serving from reused/replenished trays without fresh coverage (hygiene)
 Common caterer shortcuts to watch for:
-- Reducing portions after second round
-- Replacing premium items with cheaper alternatives mid-event
-- Insufficient waiters for the crowd size
-- Cold food being served because insufficient hot-holding equipment
+- ⚠️ PLATE COUNT MANIPULATION — most common fraud. Caterers constantly invent new methods to show higher plate count than actually served. Always have your own person counting plates going out, not just trusting caterer's count. Discrepancies of 20–30% are not uncommon.
+- Reducing portion sizes after first round so second round "plates" are counted but guests got less food
+- Replacing premium items with cheaper alternatives mid-event (premium rice → ordinary, A-grade paneer → B-grade)
+- Insufficient waiters — food gets cold waiting, service slows down after first 45 min
+- Cold food served because insufficient hot-holding equipment brought to site
 
 DECORATION & FLORALS:
 What to insist on:
@@ -197,7 +199,11 @@ What to discuss upfront:
 SECTION 3: CRISIS PLAYBOOKS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-RULE: In every crisis, first action = stabilise the guest experience. Fix the problem in the background. Never announce a crisis to guests unless safety requires it.
+CORE CRISIS PRINCIPLES (from real event management experience):
+1. SHAANT DIMAG — Every problem's solution comes from a calm mind. Panic produces bad decisions. The first thing to do in any crisis is breathe and think, not react.
+2. NOTE DOWN FIRST — Before doing anything, write down exactly what has happened, what is missing, what time it is, and what you have available. 60 seconds of noting = clarity. Clarity = the right solution. Jumping to action without noting leads to solving the wrong problem.
+3. STABILISE GUEST EXPERIENCE FIRST — Fix the problem in the background. Never announce a crisis to guests unless safety requires it.
+4. IMPROVISE WITH AVAILABLE RESOURCES — The "correct" solution may not exist at midnight. The right solution is what makes the event happen with dignity.
 
 CRISIS 1: CATERER CANCELS / NO-SHOW (day-of)
 Immediate (0–30 min):
@@ -233,14 +239,14 @@ Decision point is 2–3 hours before event, not when it starts raining.
 - Never wait until guests are arriving to make the call. Decide early and communicate clearly.
 
 CRISIS 5: VENDOR DEMANDS MORE MONEY DAY-OF
-This is the most common form of event-day extortion in India.
-- Stay calm. Do not panic or show desperation.
-- Ask them to put the demand in writing — most won't.
-- Small demand (under 10–15% of contract value): pay it with receipt, recover legally after.
-- Large demand: calculate if you have a backup option. If yes, call their bluff.
-- ⚠️ Always carry 10–15% extra cash on event day for exactly this scenario.
-- After event: file consumer complaint + share experience in vendor networks.
-Prevention: Have personal cell number of a backup for every critical vendor saved before event day.
+This is the most common form of event-day pressure in India. Real-world approach:
+1. Stay completely calm — panic or aggression makes it worse.
+2. Educate, don't fight: calmly explain what happens in events, that this is normal, and what the market rate actually is. Many vendors escalate out of anxiety or peer pressure — a confident, informed response de-escalates most situations.
+3. Normalize it: "Yeh events mein hota hai, market mein yahi rate hai, aap jaante ho yeh" — said calmly, not defensively.
+4. If they still won't move: give a small extra amount to resolve it and move on. The event matters more than the dispute at this moment.
+5. Document everything after — WhatsApp, receipt. Recover or blacklist later.
+⚠️ Always carry 10–15% extra cash on event day for exactly this scenario — it is not if, it is when.
+Prevention: Have backup vendor contact saved before event day.
 
 CRISIS 6: FAMILY CONFLICT ESCALATING
 - Do NOT take sides under any circumstances.
@@ -274,7 +280,14 @@ CRISIS 9: BARAAT STUCK IN TRAFFIC
 - Communicate through one point person to avoid rumour spread.
 - Function sequence can be reordered if needed (e.g., mehandi photo session, group photos first).
 
-CRISIS 10: KEY PROGRAM PERSON ABSENT (anchor/MC/performer)
+CRISIS 10: SETUP ITEM MISSING — DISCOVERED NIGHT BEFORE (e.g. table covers, props, linen)
+Real scenario: Vendor cancelled at 2:30am, table covers missing, event starting at 6am.
+Solution: Borrowed bedsheets from the hotel/venue, cut them to size, used as table covers.
+Key insight: Use what the venue already has. Hotels and banquet halls always have linen — bedsheets, napkins, tablecloths from their own stock. Ask the hotel manager directly, explain the situation. Most will help.
+Principle: The "correct" solution may not be available at 2:30am. The right solution is the one that makes the event happen with dignity. Improvise with available resources — guests rarely notice when done well.
+Other improvisation sources at a venue: curtain fabric, runner fabric from decor stock, dupatta/sarees from family members for draping.
+
+CRISIS 11: KEY PROGRAM PERSON ABSENT (anchor/MC/performer)
 - Always have the full script/run-of-show in writing so someone else can step in.
 - For MC: any articulate family member with the script can manage.
 - For performer: recorded performance as backup, or skip gracefully.
