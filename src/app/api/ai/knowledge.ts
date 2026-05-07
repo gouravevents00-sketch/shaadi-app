@@ -147,7 +147,11 @@ Red flags:
 - No food tasting offered before booking
 - Serving from reused/replenished trays without fresh coverage (hygiene)
 Common caterer shortcuts to watch for:
-- ⚠️ PLATE COUNT MANIPULATION — most common fraud. Caterers constantly invent new methods to show higher plate count than actually served. Always have your own person counting plates going out, not just trusting caterer's count. Discrepancies of 20–30% are not uncommon.
+- ⚠️ PLATE COUNT MANIPULATION — most common fraud. Methods used:
+  • Quietly making plates "disappear" from count — plates served but not tallied
+  • Giving a wrong count verbally without documentation
+  • Quarter plates trick: when guests are sharing (2-3 people eating from 1 plate, common at Indian events), caterer distributes quarter/side plates so the main plate count goes up artificially — children's plates, side dish plates all counted as "full plates"
+  IMPORTANT: Plate count disputes go BOTH WAYS. Guests sharing plates is extremely common at Indian weddings — especially for second helpings and children. This genuinely reduces the caterer's per-plate revenue. A fair organiser accounts for this. Solution: agree on a "served guest" count, not a plate count, and have a neutral counter present.
 - Reducing portion sizes after first round so second round "plates" are counted but guests got less food
 - Replacing premium items with cheaper alternatives mid-event (premium rice → ordinary, A-grade paneer → B-grade)
 - Insufficient waiters — food gets cold waiting, service slows down after first 45 min
@@ -163,6 +167,11 @@ Red flags:
 - Won't specify flower varieties
 - "Similar to the reference" without exact match commitment
 - No before-event walkthrough planned
+- ⚠️ DIRTY OR POOR QUALITY MATERIAL — unclean fabric, dull or wilted flowers on delivery. Check material quality at time of setup, not after the event starts.
+- ⚠️ RUDE OR SHORT WITH OWN TEAM — how a vendor treats their own workers is a direct signal of the quality of work you'll get. A decorator who shouts at or dismisses their team creates a panicked, low-effort setup crew.
+- ⚠️ LATE REPORTING TIME — decoration vendor arriving late is one of the biggest causes of event-day panic because everything else (photo, guest arrival, program start) depends on setup being done. If they are late by 1 hour, your entire buffer is gone. Confirm reporting time in writing and call to confirm the night before.
+- Cheaper material substituted at execution — thinner fabric, plastic instead of metal, fewer flowers than quoted
+- Quantity reduction — less coverage, smaller arrangements than shown in reference
 
 SOUND & AV:
 What to insist on:
@@ -204,6 +213,17 @@ CORE CRISIS PRINCIPLES (from real event management experience):
 2. NOTE DOWN FIRST — Before doing anything, write down exactly what has happened, what is missing, what time it is, and what you have available. 60 seconds of noting = clarity. Clarity = the right solution. Jumping to action without noting leads to solving the wrong problem.
 3. STABILISE GUEST EXPERIENCE FIRST — Fix the problem in the background. Never announce a crisis to guests unless safety requires it.
 4. IMPROVISE WITH AVAILABLE RESOURCES — The "correct" solution may not exist at midnight. The right solution is what makes the event happen with dignity.
+
+⚠️ THE #1 FAILURE IN ALMOST EVERY EVENT: INFORMATION GAP & COORDINATION CRUNCH
+The single most common reason events go wrong is not vendor failure or budget — it is misinformation, information gaps, and people not being on the same page.
+Symptoms: One team member has a different version of the plan. A vendor was told something different. The client assumed something was included that wasn't. The run-of-show was updated but not shared with the MC. The caterer has a different headcount than the decorator.
+Prevention:
+- One single written run-of-show document shared with ALL stakeholders — not verbal briefings
+- One WhatsApp group per event with every vendor and key family contact
+- Any change to plan goes to the group immediately — not just to the person it affects
+- The night before: every vendor confirms their reporting time, their scope, and their contact person via message
+- On event day: a 15-minute team briefing before setup begins — everyone in the same place, same version of the plan
+The organiser's job is not just to plan — it is to ensure every person executing the plan has the same information at the same time.
 
 CRISIS 1: CATERER CANCELS / NO-SHOW (day-of)
 Immediate (0–30 min):
@@ -442,6 +462,14 @@ MANAGING TWO FAMILIES:
 - When families disagree: present the options, let them decide — do not take a side
 - Document every decision with a WhatsApp confirmation
 
+"BUDGET KAM RAKHNA HAI" CLIENTS (who actually want everything):
+This is one of the most common client situations in Indian events. Real approach:
+1. Show them what their stated budget actually delivers — clearly, with specifics. Let reality land.
+2. Show them what slightly above their budget looks like — give them a natural upgrade path.
+3. Show them the actual market cost of what they're imagining — with proof (vendor quotes, market references). Don't just tell them, show them.
+4. Handle the gap conversation "behind the scenes" with the key decision-maker — a quiet one-on-one is more effective than a group conversation where ego gets involved.
+The goal is never to push budget up — it's to align expectation with reality. A client who understands why something costs what it costs will either adjust the budget or adjust the expectation. Both outcomes are fine. A client who doesn't understand will be unhappy either way.
+
 POST-EVENT:
 - Follow up within 48 hours — feedback, photo delivery timeline, final invoice
 - A thank-you message and asking for a referral is standard good practice
@@ -464,6 +492,11 @@ GOVERNMENT INAUGURATIONS:
 - Media gallery positioned at a fixed distance — check with protocol
 - Always have a holding area for VIP guests with light refreshments
 - ⚠️ Event start time depends entirely on the VVIP's schedule — build in 30–60 min buffer for late arrivals
+- ⚠️ LAST-MINUTE CHANGES ARE GUARANTEED in government/political events. The plan you have on paper will change when the protocol team arrives. The plan changes again when the politician actually arrives. Expect and plan for:
+  • Seating arrangement changes — VIP positions shuffled at the last hour
+  • Stage layout changes — additions or removals from the dais
+  • VIP area redesignation — who sits where, new additions to the guest of honour list
+  Strategy: keep your setup modular. Chairs, nameplates, table positions should all be easy to move quickly. Brief your team that changes will happen — so they are not surprised when they do. The organiser who panics at last-minute government changes is the one who wasn't expecting them. The experienced one already had the team ready to rearrange.
 
 CONCERTS (Bollywood/regional artist):
 - Artist rider is binding: technical rider (stage specs, sound, lighting) + hospitality rider (green room requirements, food, transport) must be met exactly
