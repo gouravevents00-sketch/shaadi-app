@@ -45,16 +45,42 @@ export default function ToolsClient({ celebrationId, plan, celebration }: Props)
     setAiMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setAiLoading(true)
     try {
-      const context = `Wedding: ${celebration.name}${celebration.bride_name && celebration.groom_name ? `, ${celebration.bride_name} & ${celebration.groom_name}` : ''}${celebration.event_date ? `, ${new Date(celebration.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}${celebration.city ? `, ${celebration.city}` : ''}`
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, context }),
+        body: JSON.stringify({
+          entityId: celebrationId,
+          entityType: 'celebration',
+          message: userMsg,
+          history: aiMessages.slice(-10),
+        }),
       })
-      const data = await res.json()
-      setAiMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, I couldn\'t process that.' }])
+      if (!res.ok) throw new Error('API error')
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let reply = ''
+      setAiMessages(prev => [...prev, { role: 'assistant', content: '' }])
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          reply += decoder.decode(value, { stream: true })
+          setAiMessages(prev => {
+            const updated = [...prev]
+            updated[updated.length - 1] = { role: 'assistant', content: reply }
+            return updated
+          })
+        }
+      }
+      if (!reply) setAiMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: 'Kuch problem aayi, dobara try karo.' }; return u })
     } catch {
-      setAiMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
+      setAiMessages(prev => {
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant' && !last.content) {
+          const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: 'Kuch problem aayi, dobara try karo.' }; return u
+        }
+        return [...prev, { role: 'assistant', content: 'Kuch problem aayi, dobara try karo.' }]
+      })
     } finally {
       setAiLoading(false)
     }

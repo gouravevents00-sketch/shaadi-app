@@ -490,6 +490,211 @@ ${ar.map(x => `• ${x.name} [${x.category}] ${x.status}`).join('\n')}` : ''}
 Total budget: ${fmt(budget)} | Vendor contracted: ${fmt(totalContracted)} | Headroom: ${fmt(budget - totalContracted)}`
 }
 
+// ─── Celebration (B2C) tools ──────────────────────────────────────────────────
+
+const CELEBRATION_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'find_guests',
+    description: 'Search guests by name to get their ID for other actions.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { name_query: { type: 'string' } },
+      required: ['name_query'],
+    },
+  },
+  {
+    name: 'update_guest_rsvp',
+    description: 'Update a guest RSVP status.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        guest_id: { type: 'string' },
+        status: { type: 'string', enum: ['confirmed', 'declined', 'pending'] },
+        guest_name: { type: 'string' },
+      },
+      required: ['guest_id', 'status', 'guest_name'],
+    },
+  },
+  {
+    name: 'find_tasks',
+    description: 'Search tasks by title or category.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string' },
+        status_filter: { type: 'string', description: 'pending or done' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'mark_task_done',
+    description: 'Mark one or more tasks as done.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        task_ids: { type: 'array', items: { type: 'string' } },
+        task_titles: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['task_ids', 'task_titles'],
+    },
+  },
+  {
+    name: 'add_task',
+    description: 'Add a new task to the celebration checklist.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string' },
+        category: { type: 'string' },
+        due_date: { type: 'string', description: 'YYYY-MM-DD or null' },
+      },
+      required: ['title', 'category'],
+    },
+  },
+  {
+    name: 'update_vendor_status',
+    description: 'Update a vendor status.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        vendor_id: { type: 'string' },
+        status: { type: 'string', enum: ['enquired', 'confirmed', 'booked', 'paid', 'cancelled'] },
+        vendor_name: { type: 'string' },
+      },
+      required: ['vendor_id', 'status', 'vendor_name'],
+    },
+  },
+]
+
+async function executeCelebrationTool(toolName: string, input: Record<string, unknown>, celebrationId: string): Promise<string> {
+  const sc = createServiceClient()
+  try {
+    switch (toolName) {
+      case 'find_guests': {
+        const { name_query } = input as { name_query: string }
+        const { data } = await sc.from('celebration_guests').select('id, name, rsvp_status, side').eq('celebration_id', celebrationId).ilike('name', `%${name_query}%`).limit(5)
+        if (!data?.length) return `No guests found matching "${name_query}"`
+        return data.map((g: { id: string; name: string; rsvp_status: string | null; side: string | null }) => `${g.name} (id: ${g.id}, rsvp: ${g.rsvp_status ?? 'pending'}, side: ${g.side ?? '?'})`).join('\n')
+      }
+      case 'update_guest_rsvp': {
+        const { guest_id, status, guest_name } = input as { guest_id: string; status: string; guest_name: string }
+        const { error } = await sc.from('celebration_guests').update({ rsvp_status: status }).eq('id', guest_id)
+        if (error) return `Error: ${error.message}`
+        return `${guest_name} ka RSVP "${status}" kar diya.`
+      }
+      case 'find_tasks': {
+        const { query, status_filter } = input as { query: string; status_filter?: string }
+        let q = sc.from('celebration_tasks').select('id, title, category, status, due_date').eq('celebration_id', celebrationId).ilike('title', `%${query}%`)
+        if (status_filter === 'pending') q = q.neq('status', 'done')
+        if (status_filter === 'done') q = q.eq('status', 'done')
+        const { data } = await q.limit(10)
+        if (!data?.length) return `No tasks found matching "${query}"`
+        return data.map((t: { id: string; title: string; category: string | null; status: string | null; due_date: string | null }) =>
+          `${t.title} [${t.category}] status:${t.status ?? 'pending'}${t.due_date ? ' due:' + t.due_date : ''} (id: ${t.id})`
+        ).join('\n')
+      }
+      case 'mark_task_done': {
+        const { task_ids, task_titles } = input as { task_ids: string[]; task_titles: string[] }
+        const { error } = await sc.from('celebration_tasks').update({ status: 'done' }).in('id', task_ids)
+        if (error) return `Error: ${error.message}`
+        return `${task_ids.length} task${task_ids.length > 1 ? 's' : ''} done mark kiye: ${task_titles.join(', ')}`
+      }
+      case 'add_task': {
+        const { title, category, due_date } = input as { title: string; category: string; due_date?: string }
+        const { error } = await sc.from('celebration_tasks').insert({ celebration_id: celebrationId, title, category, status: 'pending', ...(due_date ? { due_date } : {}) })
+        if (error) return `Error: ${error.message}`
+        return `"${title}" task add kar diya.${due_date ? ` Due: ${fmtDate(due_date)}.` : ''}`
+      }
+      case 'update_vendor_status': {
+        const { vendor_id, status, vendor_name } = input as { vendor_id: string; status: string; vendor_name: string }
+        const { error } = await sc.from('celebration_vendors').update({ status }).eq('id', vendor_id)
+        if (error) return `Error: ${error.message}`
+        return `${vendor_name} ka status "${status}" kar diya.`
+      }
+      default: return `Unknown tool: ${toolName}`
+    }
+  } catch (err) {
+    return `Error: ${err instanceof Error ? err.message : 'Unknown'}`
+  }
+}
+
+async function buildCelebrationContext(celebrationId: string) {
+  const sc = createServiceClient()
+  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+
+  const [
+    { data: cel },
+    { data: functions },
+    { data: guests },
+    { data: tasks },
+    { data: vendors },
+    { data: budget },
+  ] = await Promise.all([
+    sc.from('celebrations').select('bride_name, groom_name, event_date, end_date, city, venue, guest_count, wedding_style, plan').eq('id', celebrationId).single(),
+    sc.from('celebration_functions').select('id, name, date, start_time, expected_count').eq('celebration_id', celebrationId).order('date'),
+    sc.from('celebration_guests').select('id, name, rsvp_status, side, is_vip, plus_count').eq('celebration_id', celebrationId),
+    sc.from('celebration_tasks').select('id, title, category, status, due_date').eq('celebration_id', celebrationId),
+    sc.from('celebration_vendors').select('id, name, category, status, total_amount, advance_paid, payment_due').eq('celebration_id', celebrationId),
+    sc.from('celebration_budget').select('category, description, estimated, actual, status').eq('celebration_id', celebrationId),
+  ])
+
+  const fns = (functions ?? []) as { id: string; name: string; date: string; start_time: string | null; expected_count: number | null }[]
+  const g = (guests ?? []) as { id: string; name: string; rsvp_status: string | null; side: string | null; is_vip: boolean | null; plus_count: number | null }[]
+  const t = (tasks ?? []) as { id: string; title: string; category: string | null; status: string | null; due_date: string | null }[]
+  const v = (vendors ?? []) as { id: string; name: string; category: string | null; status: string | null; total_amount: number | null; advance_paid: number | null; payment_due: string | null }[]
+  const b = (budget ?? []) as { category: string; description: string; estimated: number | null; actual: number | null; status: string }[]
+
+  const confirmed = g.filter(x => x.rsvp_status === 'confirmed').length
+  const pending = g.filter(x => !x.rsvp_status || x.rsvp_status === 'pending').length
+  const declined = g.filter(x => x.rsvp_status === 'declined').length
+  const vips = g.filter(x => x.is_vip)
+  const doneTasks = t.filter(x => x.status === 'done').length
+  const pendingTasks = t.filter(x => x.status !== 'done')
+  const overdueTasks = pendingTasks.filter(x => x.due_date && x.due_date < today)
+  const totalEstimated = b.reduce((s, x) => s + (x.estimated ?? 0), 0)
+  const totalActual = b.reduce((s, x) => s + (x.actual ?? 0), 0)
+  const totalPaid = v.reduce((s, x) => s + (x.advance_paid ?? 0), 0)
+  const overdueVendors = v.filter(x => x.payment_due && x.payment_due < today && x.status !== 'paid')
+  const daysLeft = cel?.event_date
+    ? Math.ceil((new Date(cel.event_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
+    : null
+
+  return `You are a wedding AI assistant inside Utsav, helping the couple plan their wedding.
+Today: ${today}
+Reply in the same language the user writes in — Hinglish is perfectly fine and preferred.
+Be warm, brief, direct. 2-4 lines max unless a detailed list is essential.
+No greetings or filler. Flag urgent items with ⚠️.
+Use tools when user asks to do something (mark task done, update vendor, change RSVP, add task). After a tool action, confirm in 1 line.
+
+━━━ WEDDING ━━━
+${cel?.bride_name ?? '?'} weds ${cel?.groom_name ?? '?'}
+Date: ${cel?.event_date ? fmtDate(cel.event_date as string) : 'TBD'}${daysLeft !== null ? ` (${daysLeft > 0 ? daysLeft + ' din baaki' : daysLeft === 0 ? 'AAJ HAI!' : Math.abs(daysLeft) + ' din pehle tha'})` : ''}
+Venue: ${cel?.venue ?? 'TBD'}, ${cel?.city ?? ''}
+Style: ${cel?.wedding_style ?? 'traditional'} | Total guests: ${cel?.guest_count ?? g.length}
+
+━━━ FUNCTIONS (${fns.length}) ━━━
+${fns.map(f => `• ${f.name} — ${f.date ? fmtDate(f.date) : 'TBD'}${f.start_time ? ' at ' + f.start_time.slice(0, 5) : ''}${f.expected_count ? ' (' + f.expected_count + ' pax)' : ''}`).join('\n') || 'No functions added yet'}
+
+━━━ GUESTS (${g.length} total) ━━━
+Confirmed: ${confirmed} | Pending: ${pending} | Declined: ${declined}
+Bride's side: ${g.filter(x => x.side === 'bride').length} | Groom's side: ${g.filter(x => x.side === 'groom').length}
+${vips.length > 0 ? `VIPs (${vips.length}): ${vips.slice(0, 8).map(x => `${x.name} [id:${x.id}]`).join(', ')}` : ''}
+
+━━━ TASKS (${doneTasks}/${t.length} done) ━━━
+${overdueTasks.length > 0 ? `⚠️ OVERDUE (${overdueTasks.length}): ${overdueTasks.map(x => `${x.title} [id:${x.id}]`).join(' | ')}` : 'No overdue tasks ✓'}
+Pending (${pendingTasks.length}): ${pendingTasks.slice(0, 10).map(x => `${x.title} [${x.category}] [id:${x.id}]${x.due_date ? ' due:' + x.due_date : ''}`).join(' | ')}${pendingTasks.length > 10 ? ` +${pendingTasks.length - 10} more` : ''}
+
+━━━ VENDORS (${v.length}) ━━━
+${overdueVendors.length > 0 ? `⚠️ PAYMENT DUE: ${overdueVendors.map(x => `${x.name} (due ${x.payment_due})`).join(', ')}` : ''}
+${v.map(x => `• ${x.name} [${x.category}] ${x.status} — advance: ${fmt(x.advance_paid ?? 0)}/${fmt(x.total_amount ?? 0)} [id:${x.id}]`).join('\n') || 'No vendors added yet'}
+
+━━━ BUDGET ━━━
+Estimated: ${fmt(totalEstimated)} | Actual/booked: ${fmt(totalActual)} | Advance paid: ${fmt(totalPaid)}
+${b.slice(0, 12).map(x => `• ${x.category} — ${x.description}: est ${fmt(x.estimated ?? 0)}${x.actual ? ', actual ' + fmt(x.actual) : ''} [${x.status}]`).join('\n') || 'No budget items yet'}`
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -497,21 +702,42 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new Response('Unauthorized', { status: 401 })
 
-  const { entityId, entityType, message, history } = await req.json() as {
-    entityId: string
-    entityType: 'wedding' | 'org_event'
+  const { entityId, entityType, message, history, context } = await req.json() as {
+    entityId?: string
+    entityType?: 'wedding' | 'org_event' | 'celebration'
     message: string
-    history: { role: 'user' | 'assistant'; content: string }[]
+    history?: { role: 'user' | 'assistant'; content: string }[]
+    context?: string
   }
 
-  if (!entityId || !message) return new Response('Bad request', { status: 400 })
+  if (!message) return new Response('Bad request', { status: 400 })
 
-  const systemPrompt = entityType === 'org_event'
-    ? await buildOrgEventContext(entityId)
-    : await buildWeddingContext(entityId)
+  // Fallback: no entityId (e.g. DocGen) — simple context-only call
+  if (!entityId || !entityType) {
+    const resp = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: context ?? 'You are a helpful wedding assistant.',
+      messages: [{ role: 'user', content: message }],
+    })
+    const text = resp.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map(b => b.text).join('')
+    return Response.json({ reply: text })
+  }
 
-  const tools = entityType === 'org_event' ? ORG_EVENT_TOOLS : WEDDING_TOOLS
-  const trimmedHistory = history.slice(-10)
+  let systemPrompt: string
+  let tools: Anthropic.Tool[]
+
+  if (entityType === 'celebration') {
+    systemPrompt = await buildCelebrationContext(entityId)
+    tools = CELEBRATION_TOOLS
+  } else if (entityType === 'org_event') {
+    systemPrompt = await buildOrgEventContext(entityId)
+    tools = ORG_EVENT_TOOLS
+  } else {
+    systemPrompt = await buildWeddingContext(entityId)
+    tools = WEDDING_TOOLS
+  }
+  const trimmedHistory = (history ?? []).slice(-10)
   const messages: Anthropic.MessageParam[] = [
     ...trimmedHistory.map(h => ({ role: h.role, content: h.content })),
     { role: 'user', content: message },
@@ -562,12 +788,9 @@ export async function POST(req: NextRequest) {
   const toolResults: Anthropic.ToolResultBlockParam[] = []
 
   for (const toolUse of toolUseBlocks) {
-    const result = await executeTool(
-      toolUse.name,
-      toolUse.input as Record<string, unknown>,
-      entityId,
-      entityType
-    )
+    const result = entityType === 'celebration'
+      ? await executeCelebrationTool(toolUse.name, toolUse.input as Record<string, unknown>, entityId)
+      : await executeTool(toolUse.name, toolUse.input as Record<string, unknown>, entityId, entityType as 'wedding' | 'org_event')
     toolResults.push({
       type: 'tool_result',
       tool_use_id: toolUse.id,
