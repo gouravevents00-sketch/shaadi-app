@@ -581,3 +581,24 @@ export async function deleteRitual(ritualId: string) {
   const { error } = await sc.from('celebration_rituals').delete().eq('id', ritualId)
   return error ? { error: error.message } : { ok: true }
 }
+
+export async function updateCelebration(celebrationId: string, data: {
+  bride_name?: string
+  groom_name?: string
+  event_date?: string | null
+  end_date?: string | null
+  city?: string | null
+  venue?: string | null
+  guest_count?: number
+  wedding_style?: string | null
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebrations')
+    .update(data)
+    .eq('id', celebrationId)
+    .eq('user_id', user.id)
+  return error ? { error: error.message } : { ok: true }
+}

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, CheckCircle2, Users, Wallet, Store, Hotel,
   Shirt, Flame, Sparkles, ArrowLeft, Crown, CalendarDays,
-  MessageCircle, Download,
+  MessageCircle, Download, Link2, Settings,
 } from 'lucide-react'
 
 type Celebration = {
@@ -62,6 +62,8 @@ export default function MySidebarClient({
     { href: `/my/${id}/tools`,     icon: Sparkles,        label: 'Tools',      badge: 0 },
     { href: `/my/${id}/comms`,     icon: MessageCircle,   label: 'Comms',      badge: 0 },
     { href: `/my/${id}/exports`,   icon: Download,        label: 'Export',     badge: 0 },
+    { href: `/my/${id}/connect`,   icon: Link2,           label: 'Connect',    badge: 0 },
+    { href: `/my/${id}/settings`,  icon: Settings,        label: 'Settings',   badge: 0 },
   ]
 
   const mobileNav = [
