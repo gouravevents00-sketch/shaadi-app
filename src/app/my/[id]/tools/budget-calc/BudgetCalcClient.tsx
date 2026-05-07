@@ -677,7 +677,7 @@ export default function BudgetCalcClient({
       )}
 
       <p className="text-[11px] text-stone-400 text-center px-4 leading-relaxed">
-        Estimates use your {functions.length > 0 ? `${functions.length} functions, ` : ''}{celebration.venue ? 'booked venue, ' : ''}{eventMonth ? `${new Date(2024, eventMonth - 1).toLocaleString('en-IN', { month: 'long' })} season, ` : ''}2024–25 market rates.
+        Estimates use your {functions.length > 0 ? `${functions.length} functions, ` : ''}{celebration.venue ? 'booked venue, ' : ''}{eventMonth ? `${new Date(new Date().getFullYear(), eventMonth - 1).toLocaleString('en-IN', { month: 'long' })} ${new Date().getFullYear()} season, ` : ''}current market rates.
       </p>
     </div>
   )
