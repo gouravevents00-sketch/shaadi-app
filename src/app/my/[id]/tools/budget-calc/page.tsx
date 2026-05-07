@@ -11,15 +11,16 @@ export default async function BudgetCalcPage({ params }: { params: Promise<{ id:
   const sc = createServiceClient()
   const [{ data: celebration }, { data: functions }, { data: budgetItems }] = await Promise.all([
     sc.from('celebrations')
-      .select('id, bride_name, groom_name, guest_count, city, venue, wedding_style, event_date')
+      .select('id, bride_name, groom_name, guest_count, city, venue, wedding_style, event_date, plan')
       .eq('id', id).eq('user_id', user.id).single(),
     sc.from('celebration_functions')
-      .select('id, name, date').eq('celebration_id', id).order('date'),
+      .select('id, name, date, expected_count').eq('celebration_id', id).order('date'),
     sc.from('celebration_budget')
       .select('id, category, label, estimated, actual, status').eq('celebration_id', id),
   ])
 
   if (!celebration) redirect('/celebrate/new')
+  if ((celebration as { plan?: string }).plan !== 'pro') redirect(`/my/${id}/tools`)
 
   return (
     <BudgetCalcClient

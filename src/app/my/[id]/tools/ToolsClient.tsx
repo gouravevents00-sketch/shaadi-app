@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles, Calculator, FileText, Zap, Clock, Users, Package, BarChart3, BookOpen, Star, Palette, Music } from 'lucide-react'
+import { Sparkles, Calculator, FileText, Zap, Clock, Users, Package, BarChart3, BookOpen, Star, Palette, Music, Lock, X } from 'lucide-react'
 import Link from 'next/link'
 
 type Celebration = {
@@ -35,6 +35,8 @@ export default function ToolsClient({ celebrationId, plan, celebration }: Props)
   const [aiInput, setAiInput] = useState('')
   const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [aiLoading, setAiLoading] = useState(false)
+  const [upgradeModal, setUpgradeModal] = useState<string | null>(null)
+  const isPro = plan === 'pro'
 
   async function handleAiSend() {
     if (!aiInput.trim() || aiLoading) return
@@ -64,8 +66,8 @@ export default function ToolsClient({ celebrationId, plan, celebration }: Props)
       color: 'bg-purple-50 border-purple-100', iconColor: 'text-purple-500 bg-purple-100', tag: 'AI',
     },
     {
-      id: 'budget-calc', icon: Calculator, label: 'Budget Calculator', desc: 'Estimate costs by guest count & category',
-      color: 'bg-emerald-50 border-emerald-100', iconColor: 'text-emerald-500 bg-emerald-100',
+      id: 'budget-calc', icon: Calculator, label: 'Budget Calculator', desc: 'Smart estimates using your functions, season & venue data',
+      color: 'bg-emerald-50 border-emerald-100', iconColor: 'text-emerald-500 bg-emerald-100', tag: 'Pro',
       href: `/my/${celebrationId}/tools/budget-calc`,
     },
     {
@@ -185,10 +187,10 @@ export default function ToolsClient({ celebrationId, plan, celebration }: Props)
       <div className="grid grid-cols-1 gap-2">
         {tools.map(tool => {
           const isComingSoon = tool.tag === 'Soon'
-          const isPro = tool.tag === 'Pro' && plan !== 'pro'
+          const isLocked = tool.tag === 'Pro' && !isPro
 
           const content = (
-            <div className={`flex items-center gap-3 p-4 border rounded-xl transition-all ${tool.color} ${isComingSoon ? 'opacity-60' : 'hover:shadow-sm cursor-pointer'}`}>
+            <div className={`relative flex items-center gap-3 p-4 border rounded-xl transition-all ${tool.color} ${isComingSoon || isLocked ? 'opacity-70' : 'hover:shadow-sm cursor-pointer'}`}>
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tool.iconColor}`}>
                 <tool.icon className="w-5 h-5" />
               </div>
@@ -203,15 +205,59 @@ export default function ToolsClient({ celebrationId, plan, celebration }: Props)
                 </div>
                 <p className="text-xs text-stone-500 mt-0.5">{tool.desc}</p>
               </div>
+              {isLocked && (
+                <Lock className="w-4 h-4 text-stone-400 flex-shrink-0" />
+              )}
             </div>
           )
 
           if (isComingSoon) return <div key={tool.id}>{content}</div>
+          if (isLocked) return <div key={tool.id} onClick={() => setUpgradeModal(tool.id)}>{content}</div>
           if (tool.id === 'ai') return <div key={tool.id} onClick={() => setShowAiPanel(v => !v)}>{content}</div>
           if (tool.href) return <Link key={tool.id} href={tool.href}>{content}</Link>
           return <div key={tool.id}>{content}</div>
         })}
       </div>
+
+      {/* Upgrade modal */}
+      {upgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4" onClick={() => setUpgradeModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                <Calculator className="w-6 h-6 text-emerald-600" />
+              </div>
+              <button onClick={() => setUpgradeModal(null)} className="text-stone-400 hover:text-stone-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div>
+              <p className="text-base font-bold text-stone-900">Budget Calculator is a Pro feature</p>
+              <p className="text-sm text-stone-500 mt-1.5 leading-relaxed">
+                Get smart cost estimates that factor in your functions, season, venue, city, and guest count — all in one place.
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {[
+                'Function-aware decoration & catering costs',
+                'Season multipliers (peak vs off-season)',
+                'Multi-day & destination wedding logic',
+                '"I have a budget" allocation mode',
+              ].map(f => (
+                <li key={f} className="flex items-start gap-2 text-xs text-stone-600">
+                  <span className="text-emerald-500 mt-0.5 flex-shrink-0">✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            <button className="w-full bg-emerald-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors">
+              Upgrade to Pro
+            </button>
+            <button onClick={() => setUpgradeModal(null)} className="w-full text-xs text-stone-400 hover:text-stone-600 text-center">
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
