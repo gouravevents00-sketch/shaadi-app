@@ -73,9 +73,10 @@ const ENTERTAIN_FACTOR: Record<string, number> = {
 // [metro_min, metro_max, tier2_min, tier2_max, tier3_min, tier3_max]
 const BASE = {
   venue:       { metro: [280000, 800000],  tier2: [140000, 450000],  tier3: [55000, 200000]  },
-  cateringPP:  { metro: [1100, 2000],      tier2: [700, 1350],       tier3: [420, 850]        }, // per plate
+  cateringPP:  { metro: [1300, 2500],      tier2: [850, 1600],       tier3: [500, 1000]       }, // per plate per meal
   decorBase:   { metro: [70000, 220000],   tier2: [40000, 130000],   tier3: [18000, 60000]   }, // per function unit
   entertBase:  { metro: [35000, 110000],   tier2: [20000, 65000],    tier3: [9000, 30000]    }, // per function unit
+  photo:       { metro: [80000, 350000],   tier2: [45000, 200000],   tier3: [20000, 90000]   }, // base (1-day)
   baraat:      { metro: [55000, 200000],   tier2: [30000, 110000],   tier3: [14000, 55000]   },
   mehandi:     { metro: [18000, 65000],    tier2: [9000, 38000],     tier3: [4000, 18000]    },
   makeup:      { metro: [22000, 85000],    tier2: [12000, 50000],    tier3: [6000, 22000]    },
@@ -116,8 +117,10 @@ function deriveFunctionIntelligence(functions: CelebFunction[]) {
   const nights = dates.length >= 2
     ? Math.ceil((Math.max(...dates) - Math.min(...dates)) / 86400000) + 1
     : 1
+  // uniqueFnDays = distinct calendar days with at least one function
+  const uniqueFnDays = new Set(functions.map(f => f.date)).size || 1
 
-  return { types, hasBaraat, hasMehandi, hasRituals, hasSangeet, totalDecorWeight, totalEntertainWeight, nights }
+  return { types, hasBaraat, hasMehandi, hasRituals, hasSangeet, totalDecorWeight, totalEntertainWeight, nights, uniqueFnDays }
 }
 
 type Mode = 'estimate' | 'allocate'
@@ -188,13 +191,14 @@ export default function BudgetCalcClient({
       sub: venueBooked ? 'booked' : undefined,
     })
 
-    // Catering — per plate
+    // Catering — per plate × days (each function day has meals)
     const [cpMin, cpMax] = getRange('cateringPP', city)
+    const cDays = intel.uniqueFnDays
     rows.push({
       label: 'Catering', emoji: '🍽️',
-      min: Math.round(cpMin * styleFactor * guests), // no season on food
-      max: Math.round(cpMax * styleFactor * guests),
-      note: `${guests} guests × ₹${Math.round(cpMin * styleFactor)}–${Math.round(cpMax * styleFactor)}/plate`,
+      min: Math.round(cpMin * styleFactor * guests * cDays),
+      max: Math.round(cpMax * styleFactor * guests * cDays),
+      note: `${guests} guests × ₹${Math.round(cpMin * styleFactor)}–${Math.round(cpMax * styleFactor)}/plate × ${cDays} day${cDays > 1 ? 's' : ''}`,
       appCat: 'Catering',
     })
 
@@ -216,12 +220,14 @@ export default function BudgetCalcClient({
       : 'DJ, sound, live music'
     rows.push({ label: 'Music & Entertainment', emoji: '🎵', min: entMin, max: entMax, note: entNote, appCat: 'Music & Entertainment' })
 
-    // Photography
+    // Photography — base rate + 25% per extra day
+    const [phMin, phMax] = getRange('photo', city)
+    const photoMult = 1 + (nights - 1) * 0.25
     rows.push({
       label: 'Photography & Video', emoji: '📷',
-      min: Math.round(getRange('transport', city)[0] * 2.0 * f),
-      max: Math.round(getRange('transport', city)[1] * 2.2 * f),
-      note: `${functions.length || 1} day coverage — photo + video`,
+      min: Math.round(phMin * f * photoMult),
+      max: Math.round(phMax * f * photoMult),
+      note: `${nights} day coverage — photo + video`,
       appCat: 'Photography & Video',
     })
 
@@ -306,13 +312,15 @@ export default function BudgetCalcClient({
 
     mids.push({ label: 'Venue & Lawn', emoji: '🏛️', appCat: 'Venue', mid: midOf('venue'), note: venueBooked ? `"${celebration.venue}" booked` : '' })
     const cpMid = ((getRange('cateringPP', city)[0] + getRange('cateringPP', city)[1]) / 2) * (STYLES.find(s => s.value === allocStyle)?.factor ?? 1.0)
-    mids.push({ label: 'Catering', emoji: '🍽️', appCat: 'Catering', mid: Math.round(cpMid * allocGuestsN), note: `${allocGuestsN} guests` })
+    const allocCDays = allocIntel.uniqueFnDays
+    mids.push({ label: 'Catering', emoji: '🍽️', appCat: 'Catering', mid: Math.round(cpMid * allocGuestsN * allocCDays), note: `${allocGuestsN} guests × ${allocCDays} day${allocCDays > 1 ? 's' : ''}` })
     const dBase = (getRange('decorBase', city)[0] + getRange('decorBase', city)[1]) / 2
     mids.push({ label: 'Decoration & Florals', emoji: '🌸', appCat: 'Decoration', mid: Math.round(dBase * f * allocIntel.totalDecorWeight), note: '' })
     const eBase = (getRange('entertBase', city)[0] + getRange('entertBase', city)[1]) / 2
     mids.push({ label: 'Music & Entertainment', emoji: '🎵', appCat: 'Music & Entertainment', mid: Math.round(eBase * f * allocIntel.totalEntertainWeight), note: '' })
-    const tBase = (getRange('transport', city)[0] + getRange('transport', city)[1]) / 2
-    mids.push({ label: 'Photography & Video', emoji: '📷', appCat: 'Photography & Video', mid: Math.round(tBase * 2.1 * f), note: '' })
+    const photoBase = (getRange('photo', city)[0] + getRange('photo', city)[1]) / 2
+    const photoMult = 1 + (nights - 1) * 0.25
+    mids.push({ label: 'Photography & Video', emoji: '📷', appCat: 'Photography & Video', mid: Math.round(photoBase * f * photoMult), note: `${nights} day coverage` })
     mids.push({ label: 'Clothes & Jewellery', emoji: '👗', appCat: 'Clothes & Jewellery', mid: midOf('clothes'), note: '' })
     if (allocIntel.hasBaraat) mids.push({ label: 'Baraat', emoji: '🐴', appCat: 'Music & Entertainment', mid: midOf('baraat'), note: 'Baraat detected' })
     if (allocIntel.hasMehandi) mids.push({ label: 'Mehandi Artist', emoji: '🪷', appCat: 'Mehandi', mid: midOf('mehandi'), note: 'Mehandi detected' })
