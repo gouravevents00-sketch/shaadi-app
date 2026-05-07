@@ -143,6 +143,16 @@ export async function updateVendorCheckin(
   return { ok: true }
 }
 
+export async function getMarketplaceVendors() {
+  const sc = createServiceClient()
+  const { data } = await sc.from('marketplace_vendors')
+    .select('id, name, category, city, phone, price_from, is_verified, rating')
+    .eq('is_active', true)
+    .order('is_featured', { ascending: false })
+    .order('rating', { ascending: false })
+  return data ?? []
+}
+
 async function recalcPaid(sc: ReturnType<typeof createServiceClient>, vendorId: string) {
   const { data: pmts } = await sc.from('vendor_payments')
     .select('amount, paid_date').eq('vendor_id', vendorId)

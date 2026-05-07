@@ -23,14 +23,6 @@ const ALL_FUNCTIONS = [
   'Cocktail', 'Hawan', 'Lunch', 'Dinner', 'Other',
 ]
 
-const REQUIREMENTS = [
-  'Photography', 'Videography', 'Décor & Florals', 'Catering',
-  'Mehandi Artist', 'Makeup & Hair', 'Pandit / Priest',
-  'DJ & Music', 'Live Band', 'Transportation',
-  'Accommodation', 'Digital Invites', 'Tent & Furniture',
-  'Lighting', 'Gifting', 'Choreographer',
-]
-
 // ── Types ──────────────────────────────────────────────────────
 type SelFn = { day: string; name: string; time: string }
 type FormData = {
@@ -38,7 +30,6 @@ type FormData = {
   city: string; venue: string; startDate: string; endDate: string
   guestCountPerDay: Record<string, number>
   selectedFunctions: SelFn[]
-  requirements: string[]
 }
 
 function getDaysInRange(start: string, end: string): string[] {
@@ -59,7 +50,7 @@ function fmtDay(d: string, idx: number) {
 
 // ── Step indicator ─────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
-  const labels = ['Couple', 'Functions', 'Requirements', 'Plan']
+  const labels = ['Couple', 'Functions', 'Plan']
   return (
     <div className="flex items-center gap-0 mb-8">
       {labels.map((l, i) => (
@@ -90,7 +81,7 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState<FormData>({
     brideName: '', groomName: '', weddingStyle: '', city: '', venue: '',
-    startDate: '', endDate: '', guestCountPerDay: {}, selectedFunctions: [], requirements: [],
+    startDate: '', endDate: '', guestCountPerDay: {}, selectedFunctions: [],
   })
 
   const days = useMemo(() => getDaysInRange(form.startDate, form.endDate), [form.startDate, form.endDate])
@@ -113,16 +104,9 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
     ))
   }
 
-  function toggleReq(req: string) {
-    set('requirements', form.requirements.includes(req)
-      ? form.requirements.filter(r => r !== req)
-      : [...form.requirements, req])
-  }
-
   function canNext() {
     if (step === 0) return !!form.brideName.trim() && !!form.weddingStyle
     if (step === 1) return !!form.startDate && form.selectedFunctions.length > 0
-    if (step === 2) return form.requirements.length > 0
     return true
   }
 
@@ -140,7 +124,7 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
       endDate: form.endDate || form.startDate,
       functions: fns,
       guestCountPerDay: form.guestCountPerDay,
-      requirements: form.requirements,
+      requirements: [],
       venue: form.venue || undefined,
       city: form.city || undefined,
       managedBy,
@@ -160,7 +144,7 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
           <span className="text-white text-xs font-bold">✦</span>
         </div>
         <span className="font-semibold text-stone-900 text-sm flex-1">Utsav</span>
-        <span className="text-xs text-stone-400">Step {step + 1} of 4</span>
+        <span className="text-xs text-stone-400">Step {step + 1} of 3</span>
       </div>
 
       <div className="max-w-xl mx-auto px-4 py-8">
@@ -289,51 +273,8 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
           </div>
         )}
 
-        {/* ── Step 2: Requirements ── */}
+        {/* ── Step 2: Path selection ── */}
         {step === 2 && (
-          <div className="space-y-5">
-            <div>
-              <h1 className="text-2xl font-bold text-stone-900">What do you need?</h1>
-              <p className="text-stone-500 text-sm mt-1">Select all that apply</p>
-            </div>
-            <div className="bg-white border border-stone-100 rounded-xl p-4">
-              <div className="flex flex-wrap gap-2">
-                {REQUIREMENTS.map(req => {
-                  const active = form.requirements.includes(req)
-                  return (
-                    <button key={req} onClick={() => toggleReq(req)}
-                      className={`text-sm px-3.5 py-2 rounded-full font-medium transition-all ${
-                        active ? 'bg-rose-700 text-white shadow-sm' : 'bg-stone-50 border border-stone-200 text-stone-600 hover:border-rose-200 hover:text-rose-700'
-                      }`}>
-                      {active && '✓ '}{req}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {form.requirements.length > 0 && (
-              <p className="text-xs text-rose-600 font-medium text-center">{form.requirements.length} selected ✦</p>
-            )}
-            <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 space-y-1.5">
-              <p className="text-xs font-bold text-rose-700 uppercase tracking-wider mb-2">Summary</p>
-              <p className="text-sm font-semibold text-stone-800">{[form.brideName, form.groomName].filter(Boolean).join(' & ')}</p>
-              <p className="text-xs text-stone-500">
-                {WEDDING_STYLES.find(w => w.value === form.weddingStyle)?.emoji} {WEDDING_STYLES.find(w => w.value === form.weddingStyle)?.label}
-                {form.city && ` · ${form.city}`}
-              </p>
-              {form.startDate && (
-                <p className="text-xs text-stone-500">
-                  {new Date(form.startDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  {form.endDate && form.endDate !== form.startDate && ` → ${new Date(form.endDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}`}
-                </p>
-              )}
-              <p className="text-xs text-stone-500">{form.selectedFunctions.length} functions across {days.length} day{days.length !== 1 ? 's' : ''}</p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 3: Path selection ── */}
-        {step === 3 && (
           <div className="space-y-4">
             <div>
               <h1 className="text-2xl font-bold text-stone-900">How would you like to plan?</h1>
@@ -387,7 +328,7 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
         )}
 
         {/* Nav */}
-        {step < 3 && (
+        {step < 2 && (
           <div className="flex items-center justify-between mt-8 pt-5 border-t border-stone-100">
             {step > 0
               ? <button onClick={() => setStep(s => s - 1)} className="flex items-center gap-1.5 text-stone-500 hover:text-stone-800 text-sm font-medium transition-colors">
@@ -397,7 +338,7 @@ export default function CelebrationNewClient({ userId }: { userId: string }) {
             }
             <button onClick={() => setStep(s => s + 1)} disabled={!canNext()}
               className="flex items-center gap-2 bg-rose-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
-              {step === 2 ? 'Continue' : 'Next'} <ArrowRight className="w-4 h-4" />
+              Next <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}

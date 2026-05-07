@@ -2,11 +2,11 @@
 
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, ChevronDown, ChevronRight, Trash2, Phone, Mail, IndianRupee, CalendarClock, CheckCircle2, Circle, X, Pencil, UserCheck } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Trash2, Phone, Mail, IndianRupee, CalendarClock, CheckCircle2, Circle, X, Pencil, UserCheck, Store, Star, BadgeCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment, toggleVendorEvent, updateVendorCheckin } from './actions'
+import { createVendor, updateVendor, deleteVendor, createPayment, updatePayment, deletePayment, toggleVendorEvent, updateVendorCheckin, getMarketplaceVendors } from './actions'
 import { usePrivacy } from '@/contexts/PrivacyContext'
 import DocumentsPanel from '@/components/shared/DocumentsPanel'
 import SmartDatePicker from '@/components/shared/SmartDatePicker'
@@ -98,6 +98,42 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
   const [addName, setAddName] = useState('')
   const [addTotal, setAddTotal] = useState('')
   const addRef = useRef<HTMLInputElement>(null)
+
+  // Browse marketplace
+  type MktVendor = { id: string; name: string; category: string; city: string | null; phone: string | null; price_from: number | null; is_verified: boolean; rating: number | null }
+  const [showBrowse, setShowBrowse] = useState(false)
+  const [mktVendors, setMktVendors] = useState<MktVendor[]>([])
+  const [mktLoading, setMktLoading] = useState(false)
+  const [mktCatFilter, setMktCatFilter] = useState('all')
+  const [mktSearch, setMktSearch] = useState('')
+
+  async function openBrowse() {
+    setShowBrowse(true)
+    if (mktVendors.length) return
+    setMktLoading(true)
+    const data = await getMarketplaceVendors()
+    setMktVendors(data as MktVendor[])
+    setMktLoading(false)
+  }
+
+  async function importMktVendor(v: MktVendor) {
+    const res = await createVendor(weddingId, {
+      name: v.name, category: v.category,
+      phone: v.phone ?? undefined,
+      total_amount: v.price_from ?? 0,
+    })
+    if ('error' in res) { toast.error(res.error); return }
+    const newV: Vendor = {
+      id: res.id!, wedding_id: weddingId, name: v.name, category: v.category,
+      contact_name: null, phone: v.phone, email: null,
+      total_amount: v.price_from ?? 0, paid_amount: 0,
+      status: 'enquired', checkin_status: null, arrived_at: null,
+      contract_url: null, notes: null, created_at: new Date().toISOString(),
+    }
+    setVendors(vs => [...vs, newV])
+    toast.success(`${v.name} added to vendors`)
+    setShowBrowse(false)
+  }
 
   // Compute totals
   const totalBudget = vendors.reduce((s, v) => s + Number(v.total_amount), 0)
@@ -251,17 +287,22 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
             {vendors.length} vendor{vendors.length !== 1 ? 's' : ''} &middot; {pmoney(totalBudget)} total &middot; {pmoney(totalPaid)} paid
           </p>
         </div>
-        <Button
-          size="sm"
-          className="bg-rose-700 hover:bg-rose-800"
-          onClick={() => {
-            const cat = allCats[0] ?? DEFAULT_CATEGORIES[0]
-            setAddingCat(cat)
-            setTimeout(() => addRef.current?.focus(), 50)
-          }}
-        >
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Add vendor
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={openBrowse}>
+            <Store className="w-3.5 h-3.5 mr-1.5" /> Browse marketplace
+          </Button>
+          <Button
+            size="sm"
+            className="bg-rose-700 hover:bg-rose-800"
+            onClick={() => {
+              const cat = allCats[0] ?? DEFAULT_CATEGORIES[0]
+              setAddingCat(cat)
+              setTimeout(() => addRef.current?.focus(), 50)
+            }}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1.5" /> Add vendor
+          </Button>
+        </div>
       </div>
 
       {/* Overdue banner */}
@@ -497,6 +538,74 @@ export default function VendorsClient({ weddingId, role = 'coordinator', initial
           />
         )}
       </div>
+
+      {/* ── Browse Marketplace Modal ── */}
+      {showBrowse && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowBrowse(false)} />
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl max-h-[85vh] flex flex-col shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+              <div>
+                <h2 className="font-semibold text-stone-900">Browse marketplace</h2>
+                <p className="text-xs text-stone-400 mt-0.5">Import a vendor directly into this wedding</p>
+              </div>
+              <button onClick={() => setShowBrowse(false)} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-4 pt-3 pb-2 flex gap-2 border-b border-stone-100">
+              <input
+                value={mktSearch}
+                onChange={e => setMktSearch(e.target.value)}
+                placeholder="Search by name…"
+                className="flex-1 text-sm px-3 py-1.5 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-200"
+              />
+              <select value={mktCatFilter} onChange={e => setMktCatFilter(e.target.value)}
+                className="text-sm px-2 py-1.5 border border-stone-200 rounded-lg focus:outline-none bg-white">
+                <option value="all">All categories</option>
+                {[...new Set(mktVendors.map(v => v.category))].sort().map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4 space-y-2">
+              {mktLoading ? (
+                <div className="py-12 text-center text-stone-400 text-sm">Loading…</div>
+              ) : mktVendors.length === 0 ? (
+                <div className="py-12 text-center text-stone-400 text-sm">No marketplace vendors yet</div>
+              ) : (
+                mktVendors
+                  .filter(v =>
+                    (mktCatFilter === 'all' || v.category === mktCatFilter) &&
+                    (!mktSearch || v.name.toLowerCase().includes(mktSearch.toLowerCase()))
+                  )
+                  .map(v => (
+                    <div key={v.id} className="flex items-center gap-3 p-3 border border-stone-100 rounded-xl hover:border-rose-200 hover:bg-rose-50 transition-colors group">
+                      <div className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
+                        <Store className="w-4 h-4 text-stone-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-stone-800 truncate">{v.name}</p>
+                          {v.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                        </div>
+                        <p className="text-xs text-stone-400">
+                          {v.category}{v.city ? ` · ${v.city}` : ''}{v.rating ? ` · ` : ''}
+                          {v.rating ? <><Star className="w-2.5 h-2.5 inline text-amber-400 fill-amber-400" /> {v.rating.toFixed(1)}</> : null}
+                          {v.price_from ? ` · from ₹${v.price_from.toLocaleString('en-IN')}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => importMktVendor(v)}
+                        className="flex-shrink-0 text-xs bg-rose-700 text-white px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-800 transition-all"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

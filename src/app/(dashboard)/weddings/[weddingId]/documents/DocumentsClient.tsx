@@ -117,7 +117,7 @@ export default function DocumentsClient({ weddingId, weddingName, initialDocs }:
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Documents</h1>
-          <p className="text-sm text-stone-400 mt-0.5">{weddingName} · {totalDocs} file{totalDocs !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-stone-400 mt-0.5">{weddingName} · Internal files — contracts, proposals, moodboards · {totalDocs} file{totalDocs !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={category} onValueChange={v => v && setCategory(v)}>

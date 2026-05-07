@@ -1,6 +1,6 @@
 'use client'
 
-import { Download, Users, Wallet, CheckSquare, ShoppingBag } from 'lucide-react'
+import { Download, Users, Wallet, CheckSquare, ShoppingBag, TrendingUp } from 'lucide-react'
 
 interface Guest {
   id: string; name: string; phone: string | null; email: string | null
@@ -171,6 +171,85 @@ export default function ReportsClient({
           <p className="text-2xl font-bold text-stone-900">{fmtINR(totalPaid)}</p>
           <p className="text-xs text-stone-400 mt-1">{fmtINR(totalOutstanding)} outstanding</p>
         </div>
+      </div>
+
+      {/* Breakdowns */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Breakdown</p>
+
+        {/* RSVP by side */}
+        {guests.length > 0 && (() => {
+          const brideTotal = guests.filter(g => g.side === 'bride').reduce((s, g) => s + 1 + (g.plus_count ?? 0), 0)
+          const groomTotal = guests.filter(g => g.side === 'groom').reduce((s, g) => s + 1 + (g.plus_count ?? 0), 0)
+          const total = brideTotal + groomTotal || 1
+          return (
+            <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-2">
+              <p className="text-xs font-medium text-stone-600">Guests by side</p>
+              <div className="flex gap-1 h-2 rounded-full overflow-hidden">
+                <div className="bg-rose-400 rounded-l-full" style={{ width: `${(brideTotal / total) * 100}%` }} />
+                <div className="bg-blue-400 rounded-r-full flex-1" />
+              </div>
+              <div className="flex justify-between text-xs text-stone-500">
+                <span><span className="inline-block w-2 h-2 rounded-full bg-rose-400 mr-1" />Bride side: {brideTotal} pax</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-1" />Groom side: {groomTotal} pax</span>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Vendor status */}
+        {vendors.length > 0 && (() => {
+          const groups = [
+            { label: 'Paid', color: 'bg-emerald-400', count: vendors.filter(v => v.status === 'paid').length },
+            { label: 'Confirmed', color: 'bg-amber-400', count: vendors.filter(v => v.status === 'confirmed').length },
+            { label: 'Booked', color: 'bg-blue-400', count: vendors.filter(v => v.status === 'booked').length },
+            { label: 'Enquired', color: 'bg-stone-300', count: vendors.filter(v => v.status === 'enquired').length },
+          ].filter(g => g.count > 0)
+          return (
+            <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-2">
+              <p className="text-xs font-medium text-stone-600">Vendor status</p>
+              <div className="flex gap-1 h-2 rounded-full overflow-hidden">
+                {groups.map((g, i) => (
+                  <div key={g.label} className={`${g.color} ${i === 0 ? 'rounded-l-full' : ''} ${i === groups.length - 1 ? 'rounded-r-full' : ''}`}
+                    style={{ width: `${(g.count / vendors.length) * 100}%` }} />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {groups.map(g => (
+                  <span key={g.label} className="text-xs text-stone-500">
+                    <span className={`inline-block w-2 h-2 rounded-full ${g.color} mr-1`} />{g.label}: {g.count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Checklist progress by category */}
+        {checklist.length > 0 && (() => {
+          const cats = [...new Set(checklist.map(c => c.category))].slice(0, 6)
+          return (
+            <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-2">
+              <p className="text-xs font-medium text-stone-600">Checklist by category</p>
+              <div className="space-y-1.5">
+                {cats.map(cat => {
+                  const items = checklist.filter(c => c.category === cat)
+                  const done = items.filter(c => c.status === 'done').length
+                  const pct = Math.round((done / items.length) * 100)
+                  return (
+                    <div key={cat} className="flex items-center gap-2">
+                      <p className="text-xs text-stone-500 w-32 truncate flex-shrink-0">{cat}</p>
+                      <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-400' : 'bg-rose-400'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-xs text-stone-400 w-10 text-right flex-shrink-0">{done}/{items.length}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Export cards */}

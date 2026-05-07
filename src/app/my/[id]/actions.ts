@@ -488,7 +488,6 @@ export async function updateTaskDetails(taskId: string, data: { due_date?: strin
   }).eq('id', taskId)
   return error ? { error: error.message } : { ok: true }
 }
-
 // ── Feature 9: Bulk add tasks from template ───────────────────
 export async function bulkAddTasks(
   celebrationId: string,
@@ -502,8 +501,8 @@ export async function bulkAddTasks(
     status: 'pending' as const,
     ai_generated: false,
   }))
-  const { error } = await sc.from('celebration_tasks').insert(records)
-  return error ? { error: error.message } : { ok: true, count: records.length }
+  const { data, error } = await sc.from('celebration_tasks').insert(records).select('id')
+  return error ? { error: error.message } : { ok: true, count: records.length, ids: (data ?? []).map((r: { id: string }) => r.id) }
 }
 
 // ── Feature 11: Bulk update / delete tasks ────────────────────
@@ -516,5 +515,69 @@ export async function bulkUpdateTaskStatus(taskIds: string[], status: 'pending' 
 export async function bulkDeleteTasks(taskIds: string[]) {
   const sc = createServiceClient()
   const { error } = await sc.from('celebration_tasks').delete().in('id', taskIds)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Outfits ───────────────────────────────────────────────────
+export async function addOutfit(celebrationId: string, data: {
+  person_name: string; person_role?: string; function_name?: string;
+  outfit_description?: string; color?: string; designer_vendor?: string; notes?: string
+}) {
+  const sc = createServiceClient()
+  const { data: item, error } = await sc.from('celebration_outfits').insert({
+    celebration_id: celebrationId,
+    person_name: data.person_name.trim(),
+    person_role: data.person_role || null,
+    function_name: data.function_name || null,
+    outfit_description: data.outfit_description?.trim() || null,
+    color: data.color?.trim() || null,
+    designer_vendor: data.designer_vendor?.trim() || null,
+    notes: data.notes?.trim() || null,
+    status: 'planned',
+  }).select('id').single()
+  return error ? { error: error.message } : { id: item.id }
+}
+
+export async function updateOutfitStatus(outfitId: string, status: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_outfits').update({ status }).eq('id', outfitId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function deleteOutfit(outfitId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_outfits').delete().eq('id', outfitId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Rituals ───────────────────────────────────────────────────
+export async function addRitual(celebrationId: string, data: {
+  function_id?: string; name: string; description?: string;
+  time_of_day?: string; duration_minutes?: number; pandit_required?: boolean;
+  items_required?: string[]
+}) {
+  const sc = createServiceClient()
+  const { data: item, error } = await sc.from('celebration_rituals').insert({
+    celebration_id: celebrationId,
+    function_id: data.function_id || null,
+    name: data.name.trim(),
+    description: data.description?.trim() || null,
+    time_of_day: data.time_of_day || null,
+    duration_minutes: data.duration_minutes || null,
+    pandit_required: data.pandit_required ?? false,
+    items_required: data.items_required || [],
+  }).select('id').single()
+  return error ? { error: error.message } : { id: item.id }
+}
+
+export async function toggleRitual(ritualId: string, isDone: boolean) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_rituals').update({ is_done: isDone }).eq('id', ritualId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function deleteRitual(ritualId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_rituals').delete().eq('id', ritualId)
   return error ? { error: error.message } : { ok: true }
 }

@@ -3,53 +3,61 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import Link from 'next/link'
-import { Sparkles } from 'lucide-react'
-import { createCelebrationUser } from './action'
+import { Sparkles, ArrowRight } from 'lucide-react'
+import { phoneLogin, savePhoneProfile } from './action'
 
 function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+  const next = searchParams.get('next') || '/my'
 
-  const [mode, setMode] = useState<'signin' | 'signup'>(
-    searchParams.get('mode') === 'signin' ? 'signin' : 'signup'
-  )
-  const next = searchParams.get('next') || ''
+  const [step, setStep] = useState<'phone' | 'name'>('phone')
+  const [phone, setPhone] = useState('')
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [userId, setUserId] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSignUp(e: React.FormEvent) {
+  async function handlePhone(e: { preventDefault(): void }) {
     e.preventDefault()
-    if (!name.trim()) { toast.error('Enter your name'); return }
+    const digits = phone.replace(/\D/g, '').slice(-10)
+    if (digits.length !== 10) { toast.error('Enter a valid 10-digit mobile number'); return }
     setLoading(true)
-    // Use server action — admin API auto-confirms email, no confirmation needed
-    const res = await createCelebrationUser({ name, email, password })
+
+    const res = await phoneLogin(digits)
     if ('error' in res) { toast.error(res.error); setLoading(false); return }
-    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
-    if (signInErr) {
-      toast.error('Account created but sign-in failed: ' + signInErr.message)
-      setMode('signin')
+
+    // Use server token to create client session
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: res.hashed_token,
+      type: 'email',
+    })
+    if (error) { toast.error('Login failed: ' + error.message); setLoading(false); return }
+
+    if (res.hasProfile) {
+      router.push(next)
+      router.refresh()
     } else {
-      toast.success('Welcome! Account created.')
-      router.push('/celebrate/new')  // new account — always start fresh
+      setUserId(res.userId)
+      setStep('name')
     }
     setLoading(false)
   }
 
-  async function handleSignIn(e: React.FormEvent) {
+  async function handleName(e: { preventDefault(): void }) {
     e.preventDefault()
+    if (!name.trim()) { toast.error('Enter your name'); return }
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { toast.error(error.message); setLoading(false); return }
-    router.push(next || '/my')
-    router.refresh()
+    try {
+      const res = await savePhoneProfile({ name: name.trim(), userId, phone: phone.replace(/\D/g, '').slice(-10) })
+      if ('error' in res) { toast.error(res.error); return }
+      toast.success('Welcome to Utsav! 🎉')
+      router.push('/celebrate/new')
+      router.refresh()
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -60,64 +68,73 @@ function SignupForm() {
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-xl font-bold text-stone-900">
-            {mode === 'signup' ? 'Create your free account' : 'Welcome back'}
+            {step === 'name' ? 'One last thing' : 'Welcome to Utsav'}
           </h1>
           <p className="text-stone-500 text-sm mt-1">
-            {mode === 'signup' ? 'Start planning your celebration' : 'Continue planning your celebration'}
+            {step === 'phone' ? 'Enter your mobile number to continue' : 'What should we call you?'}
           </p>
         </div>
 
         <div className="bg-white border border-stone-200 rounded-2xl p-6">
-          {mode === 'signup' ? (
-            <form onSubmit={handleSignUp} className="space-y-4">
+
+          {step === 'phone' && (
+            <form onSubmit={handlePhone} className="space-y-4">
               <div>
-                <Label>Your name</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Priya Sharma" className="mt-1" required autoFocus />
+                <label className="text-xs font-medium text-stone-600 mb-1.5 block">Mobile number</label>
+                <div className="flex items-center border border-stone-200 rounded-xl overflow-hidden focus-within:border-rose-400 transition-colors">
+                  <div className="flex items-center gap-1.5 px-3 py-2.5 bg-stone-50 border-r border-stone-200 flex-shrink-0">
+                    <span className="text-sm">🇮🇳</span>
+                    <span className="text-sm font-medium text-stone-600">+91</span>
+                  </div>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="98765 43210"
+                    className="flex-1 px-3 py-2.5 text-sm bg-white focus:outline-none"
+                    autoFocus
+                    inputMode="numeric"
+                    maxLength={10}
+                  />
+                </div>
               </div>
-              <div>
-                <Label>Email</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" className="mt-1" required />
-              </div>
-              <div>
-                <Label>Password</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" className="mt-1" required minLength={6} />
-              </div>
-              <Button type="submit" className="w-full bg-rose-700 hover:bg-rose-800" disabled={loading}>
-                {loading ? 'Creating account…' : "Create account — it's free"}
-              </Button>
+              <button
+                type="submit"
+                disabled={loading || phone.replace(/\D/g, '').length !== 10}
+                className="w-full bg-rose-700 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-rose-800 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+              >
+                {loading ? 'Signing in…' : <><span>Continue</span><ArrowRight className="w-4 h-4" /></>}
+              </button>
             </form>
-          ) : (
-            <form onSubmit={handleSignIn} className="space-y-4">
+          )}
+
+          {step === 'name' && (
+            <form onSubmit={handleName} className="space-y-4">
               <div>
-                <Label>Email</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" className="mt-1" required autoFocus />
+                <label className="text-xs font-medium text-stone-600 mb-1.5 block">Your name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Priya Sharma"
+                  className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-rose-400 transition-colors"
+                  autoFocus
+                />
               </div>
-              <div>
-                <Label>Password</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="mt-1" required />
-              </div>
-              <Button type="submit" className="w-full bg-rose-700 hover:bg-rose-800" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign in'}
-              </Button>
+              <button
+                type="submit"
+                disabled={loading || !name.trim()}
+                className="w-full bg-rose-700 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-rose-800 disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Setting up…' : "Let's start planning 🎉"}
+              </button>
             </form>
           )}
         </div>
 
-        <p className="text-center text-sm text-stone-500 mt-4">
-          {mode === 'signup' ? (
-            <>Already have an account?{' '}
-              <button onClick={() => setMode('signin')} className="text-rose-700 font-medium hover:underline">Sign in</button>
-            </>
-          ) : (
-            <>New here?{' '}
-              <button onClick={() => setMode('signup')} className="text-rose-700 font-medium hover:underline">Create account</button>
-            </>
-          )}
-        </p>
-
         <p className="text-center text-xs text-stone-400 mt-4">
           Are you a wedding planner or event company?{' '}
-          <Link href="/login" className="text-rose-600 hover:underline">Sign in here instead</Link>
+          <a href="/login" className="text-rose-600 hover:underline">Sign in here instead</a>
         </p>
       </div>
     </div>

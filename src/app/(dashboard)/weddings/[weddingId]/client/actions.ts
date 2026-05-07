@@ -12,6 +12,25 @@ async function getVerified(weddingId: string) {
   return { sc: createServiceClient(), userId: user.id }
 }
 
+export async function generateClientInvite(weddingId: string, email: string) {
+  const r = await getVerified(weddingId)
+  if ('error' in r) return { error: r.error }
+  // Reuse existing unexpired invite if present
+  const { data: existing } = await r.sc.from('invites')
+    .select('token').eq('wedding_id', weddingId).eq('email', email.toLowerCase().trim())
+    .eq('role', 'client').is('accepted_at', null)
+    .gt('expires_at', new Date().toISOString()).single()
+  if (existing) return { token: existing.token }
+  const { data: invite, error } = await r.sc.from('invites').insert({
+    company_id: (await r.sc.from('company_members').select('company_id').eq('user_id', r.userId).single()).data?.company_id,
+    wedding_id: weddingId, email: email.toLowerCase().trim(),
+    role: 'client', invited_by: r.userId,
+  }).select('token').single()
+  if (error) return { error: error.message }
+  revalidatePath(`/weddings/${weddingId}/client`)
+  return { token: invite.token }
+}
+
 export async function createApproval(weddingId: string, data: {
   title: string; category: string; description?: string
 }) {

@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Trash2, ThumbsUp, ThumbsDown, RefreshCw,
-  Clock, CheckCircle, XCircle, Users, Heart, ListTodo, ChevronDown, ChevronUp
+  Clock, CheckCircle, XCircle, Users, Heart, ListTodo, ChevronDown, ChevronUp,
+  Copy, Send, ExternalLink, Check
 } from 'lucide-react'
-import { createApproval, deleteApproval } from './actions'
+import { createApproval, deleteApproval, generateClientInvite } from './actions'
 
 interface ApprovalItem {
   id: string; title: string; category: string; description: string | null
@@ -58,6 +59,32 @@ export default function ClientPageClient({ weddingId, approvals: initApprovals, 
   const [saving, setSaving] = useState(false)
   const [expandedPref, setExpandedPref] = useState<string | null>('food')
 
+  // Portal invite state
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteSending, setInviteSending] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const portalUrl = typeof window !== 'undefined' ? `${window.location.origin}/portal/${weddingId}` : `/portal/${weddingId}`
+
+  async function handleSendInvite(e: React.FormEvent) {
+    e.preventDefault()
+    if (!inviteEmail.trim()) return
+    setInviteSending(true)
+    const res = await generateClientInvite(weddingId, inviteEmail.trim())
+    setInviteSending(false)
+    if ('error' in res) { toast.error(res.error); return }
+    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/invite/${res.token}`
+    await navigator.clipboard.writeText(inviteLink).catch(() => {})
+    toast.success('Invite link copied — send it to your client!')
+    setInviteEmail('')
+  }
+
+  function copyPortalUrl() {
+    navigator.clipboard.writeText(portalUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   const activeClients = clientInvites.filter(i => i.accepted_at)
 
   async function handleCreate(e: React.FormEvent) {
@@ -106,8 +133,52 @@ export default function ClientPageClient({ weddingId, approvals: initApprovals, 
         <p className="text-sm text-stone-400 mt-0.5">
           {activeClients.length > 0
             ? `${activeClients.map(c => c.email).join(', ')} — active`
-            : 'No client logged in yet — share invite from Overview'}
+            : 'No client logged in yet'}
         </p>
+      </div>
+
+      {/* Portal access */}
+      <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
+        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Portal access</p>
+
+        {/* Portal URL + copy */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-3 py-2 min-w-0">
+            <ExternalLink className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
+            <span className="text-xs text-stone-500 truncate">{portalUrl}</span>
+          </div>
+          <button onClick={copyPortalUrl}
+            className="flex items-center gap-1.5 text-xs px-3 py-2 border border-stone-200 bg-white rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0">
+            {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy link</>}
+          </button>
+        </div>
+
+        {/* Send invite */}
+        <form onSubmit={handleSendInvite} className="flex items-center gap-2">
+          <input
+            type="email" required value={inviteEmail}
+            onChange={e => setInviteEmail(e.target.value)}
+            placeholder="Client email — send personalised invite link"
+            className="flex-1 text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-200 bg-white"
+          />
+          <button type="submit" disabled={inviteSending}
+            className="flex items-center gap-1.5 text-xs bg-rose-700 text-white px-3 py-2 rounded-lg hover:bg-rose-800 disabled:opacity-50 transition-colors flex-shrink-0">
+            <Send className="w-3.5 h-3.5" /> {inviteSending ? 'Sending…' : 'Send invite'}
+          </button>
+        </form>
+
+        {/* Existing invites */}
+        {clientInvites.length > 0 && (
+          <div className="space-y-1">
+            {clientInvites.map(i => (
+              <div key={i.email} className="flex items-center gap-2 text-xs text-stone-500">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${i.accepted_at ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span className="flex-1 truncate">{i.email}</span>
+                <span>{i.accepted_at ? 'Accepted' : 'Invite sent'}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Activity summary */}
