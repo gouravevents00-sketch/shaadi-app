@@ -22,6 +22,20 @@ type ArtistRow = { name: string; category: string | null; status: string | null 
 type AgendaRow = { time: string | null; activity: string; owner: string | null; venue: string | null }
 type BudgetItemRow = { name: string; category: string | null; estimated: number | null; actual: number | null }
 
+// ─── Intent router ────────────────────────────────────────────────────────────
+
+type DataIntent = 'guests' | 'tasks' | 'vendors' | 'budget'
+
+function detectIntents(message: string): Set<DataIntent> {
+  const m = message.toLowerCase()
+  const s = new Set<DataIntent>()
+  if (/guest|rsvp|attend|confirm|declin|coming|invite|kaun aa|kitne log|side|vip|who is|add.*guest|guest.*add/.test(m)) s.add('guests')
+  if (/task|checklist|todo|pending|done|complet|mark|karna|reminder|overdue|baaki|finish/.test(m)) s.add('tasks')
+  if (/vendor|caterer|catering|photo|decor|makeup|dj|band|pandit|sound|flower|tent|book|payment|advance|paid|invoice|add.*vendor|vendor.*add/.test(m)) s.add('vendors')
+  if (/budget|cost|expense|price|rate|total|spend|rupay|rupee|lakh|kitna|paisa|money|add.*budget|budget.*add/.test(m)) s.add('budget')
+  return s // empty = general knowledge question
+}
+
 function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -566,10 +580,72 @@ const CELEBRATION_TOOLS: Anthropic.Tool[] = [
       required: ['vendor_id', 'status', 'vendor_name'],
     },
   },
+  {
+    name: 'update_celebration_details',
+    description: 'Update core celebration details: event_date, end_date, venue, city, guest_count, wedding_style. Use when user asks to change wedding date, venue, city, guest count, or style.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        event_date: { type: 'string', description: 'Start date in YYYY-MM-DD format' },
+        end_date: { type: 'string', description: 'End date in YYYY-MM-DD format (for multi-day weddings)' },
+        venue: { type: 'string', description: 'Venue name' },
+        city: { type: 'string', description: 'City name' },
+        guest_count: { type: 'number', description: 'Expected guest count' },
+        wedding_style: { type: 'string', description: 'Wedding style (e.g. traditional, destination, intimate)' },
+      },
+    },
+  },
+  {
+    name: 'add_guest',
+    description: 'Add a new guest to the guest list. Use when user asks to add someone to the guest list.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Guest full name' },
+        side: { type: 'string', enum: ['bride', 'groom', 'both'], description: 'Which side the guest belongs to' },
+        phone: { type: 'string', description: 'Phone number (optional)' },
+        is_vip: { type: 'boolean', description: 'Mark as VIP guest' },
+        plus_count: { type: 'number', description: 'Number of additional people coming with this guest (default 0)' },
+      },
+      required: ['name', 'side'],
+    },
+  },
+  {
+    name: 'add_vendor',
+    description: 'Add a new vendor to the vendor list. Use when user asks to add/book/enquire about a vendor.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Vendor/business name' },
+        category: { type: 'string', description: 'Category e.g. Photography, Catering, Decoration, Makeup, DJ, Sound, Pandit, Transport' },
+        phone: { type: 'string', description: 'Contact phone (optional)' },
+        total_amount: { type: 'number', description: 'Quoted/contracted amount in rupees (optional)' },
+        status: { type: 'string', enum: ['enquired', 'confirmed', 'booked', 'paid', 'cancelled'], description: 'Current status (default: enquired)' },
+        notes: { type: 'string', description: 'Any notes about this vendor (optional)' },
+      },
+      required: ['name', 'category'],
+    },
+  },
+  {
+    name: 'add_budget_item',
+    description: 'Add a new item to the budget tracker. Use when user asks to add an expense, budget line, or cost item.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        category: { type: 'string', description: 'Budget category e.g. Venue, Catering, Photography, Decoration, Clothing, Music, Transport' },
+        description: { type: 'string', description: 'Specific item description e.g. "Bridal lehenga", "Mehandi artist"' },
+        estimated: { type: 'number', description: 'Estimated amount in rupees' },
+        actual: { type: 'number', description: 'Actual amount if already known (optional)' },
+        status: { type: 'string', enum: ['planned', 'booked', 'paid'], description: 'Status (default: planned)' },
+      },
+      required: ['category', 'description', 'estimated'],
+    },
+  },
 ]
 
 async function executeCelebrationTool(toolName: string, input: Record<string, unknown>, celebrationId: string): Promise<string> {
   const sc = createServiceClient()
+  const celebPath = `/my/${celebrationId}`
   try {
     switch (toolName) {
       case 'find_guests': {
@@ -582,6 +658,7 @@ async function executeCelebrationTool(toolName: string, input: Record<string, un
         const { guest_id, status, guest_name } = input as { guest_id: string; status: string; guest_name: string }
         const { error } = await sc.from('celebration_guests').update({ rsvp_status: status }).eq('id', guest_id)
         if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
         return `${guest_name} ka RSVP "${status}" kar diya.`
       }
       case 'find_tasks': {
@@ -599,19 +676,82 @@ async function executeCelebrationTool(toolName: string, input: Record<string, un
         const { task_ids, task_titles } = input as { task_ids: string[]; task_titles: string[] }
         const { error } = await sc.from('celebration_tasks').update({ status: 'done' }).in('id', task_ids)
         if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
         return `${task_ids.length} task${task_ids.length > 1 ? 's' : ''} done mark kiye: ${task_titles.join(', ')}`
       }
       case 'add_task': {
         const { title, category, due_date } = input as { title: string; category: string; due_date?: string }
         const { error } = await sc.from('celebration_tasks').insert({ celebration_id: celebrationId, title, category, status: 'pending', ...(due_date ? { due_date } : {}) })
         if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
         return `"${title}" task add kar diya.${due_date ? ` Due: ${fmtDate(due_date)}.` : ''}`
       }
       case 'update_vendor_status': {
         const { vendor_id, status, vendor_name } = input as { vendor_id: string; status: string; vendor_name: string }
         const { error } = await sc.from('celebration_vendors').update({ status }).eq('id', vendor_id)
         if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
         return `${vendor_name} ka status "${status}" kar diya.`
+      }
+      case 'update_celebration_details': {
+        const updates = input as { event_date?: string; end_date?: string; venue?: string; city?: string; guest_count?: number; wedding_style?: string }
+        const patch: Record<string, unknown> = {}
+        if (updates.event_date) patch.event_date = updates.event_date
+        if (updates.end_date) patch.end_date = updates.end_date
+        if (updates.venue) patch.venue = updates.venue
+        if (updates.city) patch.city = updates.city
+        if (updates.guest_count) patch.guest_count = updates.guest_count
+        if (updates.wedding_style) patch.wedding_style = updates.wedding_style
+        if (Object.keys(patch).length === 0) return 'Kuch update karne ke liye nahi mila.'
+        const { error } = await sc.from('celebrations').update(patch).eq('id', celebrationId)
+        if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
+        const summary = Object.entries(patch).map(([k, v]) => `${k}: ${v}`).join(', ')
+        return `Updated: ${summary}`
+      }
+      case 'add_guest': {
+        const { name, side, phone, is_vip, plus_count } = input as { name: string; side: string; phone?: string; is_vip?: boolean; plus_count?: number }
+        const { error } = await sc.from('celebration_guests').insert({
+          celebration_id: celebrationId,
+          name,
+          side,
+          rsvp_status: 'pending',
+          ...(phone ? { phone } : {}),
+          ...(is_vip ? { is_vip } : {}),
+          ...(plus_count ? { plus_count } : {}),
+        })
+        if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
+        return `"${name}" (${side} side${is_vip ? ', VIP' : ''}${plus_count ? ', +' + plus_count : ''}) guest list mein add kar diya.`
+      }
+      case 'add_vendor': {
+        const { name, category, phone, total_amount, status, notes } = input as { name: string; category: string; phone?: string; total_amount?: number; status?: string; notes?: string }
+        const { error } = await sc.from('celebration_vendors').insert({
+          celebration_id: celebrationId,
+          name,
+          category,
+          status: status ?? 'enquired',
+          ...(phone ? { phone } : {}),
+          ...(total_amount ? { total_amount } : {}),
+          ...(notes ? { notes } : {}),
+        })
+        if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
+        return `${name} [${category}]${total_amount ? ' — ' + fmt(total_amount) : ''} vendor list mein add kar diya. Status: ${status ?? 'enquired'}.`
+      }
+      case 'add_budget_item': {
+        const { category, description, estimated, actual, status } = input as { category: string; description: string; estimated: number; actual?: number; status?: string }
+        const { error } = await sc.from('celebration_budget').insert({
+          celebration_id: celebrationId,
+          category,
+          description,
+          estimated,
+          status: status ?? 'planned',
+          ...(actual ? { actual } : {}),
+        })
+        if (error) return `Error: ${error.message}`
+        revalidatePath(celebPath)
+        return `Budget item add kar diya: "${description}" [${category}] — Est. ${fmt(estimated)}${actual ? ', Actual: ' + fmt(actual) : ''}. Status: ${status ?? 'planned'}.`
       }
       default: return `Unknown tool: ${toolName}`
     }
@@ -620,10 +760,17 @@ async function executeCelebrationTool(toolName: string, input: Record<string, un
   }
 }
 
-async function buildCelebrationContext(celebrationId: string) {
+async function buildCelebrationContext(celebrationId: string, intents: Set<DataIntent>) {
   const sc = createServiceClient()
   const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
+
+  // Always load celebration basics + functions. Load data sections only when relevant.
+  const loadAll = intents.size === 0
+  const loadGuests  = loadAll || intents.has('guests')
+  const loadTasks   = loadAll || intents.has('tasks')
+  const loadVendors = loadAll || intents.has('vendors')
+  const loadBudget  = loadAll || intents.has('budget')
 
   const [
     { data: cel },
@@ -635,10 +782,10 @@ async function buildCelebrationContext(celebrationId: string) {
   ] = await Promise.all([
     sc.from('celebrations').select('bride_name, groom_name, event_date, end_date, city, venue, guest_count, wedding_style, plan').eq('id', celebrationId).single(),
     sc.from('celebration_functions').select('id, name, date, start_time, expected_count').eq('celebration_id', celebrationId).order('date'),
-    sc.from('celebration_guests').select('id, name, rsvp_status, side, is_vip, plus_count').eq('celebration_id', celebrationId),
-    sc.from('celebration_tasks').select('id, title, category, status, due_date').eq('celebration_id', celebrationId),
-    sc.from('celebration_vendors').select('id, name, category, status, total_amount, advance_paid, payment_due').eq('celebration_id', celebrationId),
-    sc.from('celebration_budget').select('category, description, estimated, actual, status').eq('celebration_id', celebrationId),
+    loadGuests  ? sc.from('celebration_guests').select('id, name, rsvp_status, side, is_vip, plus_count').eq('celebration_id', celebrationId) : Promise.resolve({ data: [] }),
+    loadTasks   ? sc.from('celebration_tasks').select('id, title, category, status, due_date').eq('celebration_id', celebrationId) : Promise.resolve({ data: [] }),
+    loadVendors ? sc.from('celebration_vendors').select('id, name, category, status, total_amount, advance_paid, payment_due').eq('celebration_id', celebrationId) : Promise.resolve({ data: [] }),
+    loadBudget  ? sc.from('celebration_budget').select('category, description, estimated, actual, status').eq('celebration_id', celebrationId) : Promise.resolve({ data: [] }),
   ])
 
   const fns = (functions ?? []) as { id: string; name: string; date: string; start_time: string | null; expected_count: number | null }[]
@@ -662,6 +809,27 @@ async function buildCelebrationContext(celebrationId: string) {
     ? Math.ceil((new Date(cel.event_date as string + 'T00:00:00').getTime() - now.getTime()) / 86400000)
     : null
 
+  const guestSection = loadGuests ? `
+━━━ GUESTS (${g.length} total) ━━━
+Confirmed: ${confirmed} | Pending: ${pending} | Declined: ${declined}
+Bride's side: ${g.filter(x => x.side === 'bride').length} | Groom's side: ${g.filter(x => x.side === 'groom').length}
+${vips.length > 0 ? `VIPs (${vips.length}): ${vips.slice(0, 8).map(x => `${x.name} [id:${x.id}]`).join(', ')}` : ''}` : ''
+
+  const taskSection = loadTasks ? `
+━━━ TASKS (${doneTasks}/${t.length} done) ━━━
+${overdueTasks.length > 0 ? `⚠️ OVERDUE (${overdueTasks.length}): ${overdueTasks.map(x => `${x.title} [id:${x.id}]`).join(' | ')}` : 'No overdue tasks ✓'}
+Pending (${pendingTasks.length}): ${pendingTasks.slice(0, 10).map(x => `${x.title} [${x.category}] [id:${x.id}]${x.due_date ? ' due:' + x.due_date : ''}`).join(' | ')}${pendingTasks.length > 10 ? ` +${pendingTasks.length - 10} more` : ''}` : ''
+
+  const vendorSection = loadVendors ? `
+━━━ VENDORS (${v.length}) ━━━
+${overdueVendors.length > 0 ? `⚠️ PAYMENT DUE: ${overdueVendors.map(x => `${x.name} (due ${x.payment_due})`).join(', ')}` : ''}
+${v.map(x => `• ${x.name} [${x.category}] ${x.status} — advance: ${fmt(x.advance_paid ?? 0)}/${fmt(x.total_amount ?? 0)} [id:${x.id}]`).join('\n') || 'No vendors added yet'}` : ''
+
+  const budgetSection = loadBudget ? `
+━━━ BUDGET ━━━
+Estimated: ${fmt(totalEstimated)} | Actual/booked: ${fmt(totalActual)} | Advance paid: ${fmt(totalPaid)}
+${b.slice(0, 12).map(x => `• ${x.category} — ${x.description}: est ${fmt(x.estimated ?? 0)}${x.actual ? ', actual ' + fmt(x.actual) : ''} [${x.status}]`).join('\n') || 'No budget items yet'}` : ''
+
   return `${UTSAV_AI_KNOWLEDGE}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -678,23 +846,7 @@ Style: ${cel?.wedding_style ?? 'traditional'} | Total guests: ${cel?.guest_count
 
 ━━━ FUNCTIONS (${fns.length}) ━━━
 ${fns.map(f => `• ${f.name} — ${f.date ? fmtDate(f.date) : 'TBD'}${f.start_time ? ' at ' + f.start_time.slice(0, 5) : ''}${f.expected_count ? ' (' + f.expected_count + ' pax)' : ''}`).join('\n') || 'No functions added yet'}
-
-━━━ GUESTS (${g.length} total) ━━━
-Confirmed: ${confirmed} | Pending: ${pending} | Declined: ${declined}
-Bride's side: ${g.filter(x => x.side === 'bride').length} | Groom's side: ${g.filter(x => x.side === 'groom').length}
-${vips.length > 0 ? `VIPs (${vips.length}): ${vips.slice(0, 8).map(x => `${x.name} [id:${x.id}]`).join(', ')}` : ''}
-
-━━━ TASKS (${doneTasks}/${t.length} done) ━━━
-${overdueTasks.length > 0 ? `⚠️ OVERDUE (${overdueTasks.length}): ${overdueTasks.map(x => `${x.title} [id:${x.id}]`).join(' | ')}` : 'No overdue tasks ✓'}
-Pending (${pendingTasks.length}): ${pendingTasks.slice(0, 10).map(x => `${x.title} [${x.category}] [id:${x.id}]${x.due_date ? ' due:' + x.due_date : ''}`).join(' | ')}${pendingTasks.length > 10 ? ` +${pendingTasks.length - 10} more` : ''}
-
-━━━ VENDORS (${v.length}) ━━━
-${overdueVendors.length > 0 ? `⚠️ PAYMENT DUE: ${overdueVendors.map(x => `${x.name} (due ${x.payment_due})`).join(', ')}` : ''}
-${v.map(x => `• ${x.name} [${x.category}] ${x.status} — advance: ${fmt(x.advance_paid ?? 0)}/${fmt(x.total_amount ?? 0)} [id:${x.id}]`).join('\n') || 'No vendors added yet'}
-
-━━━ BUDGET ━━━
-Estimated: ${fmt(totalEstimated)} | Actual/booked: ${fmt(totalActual)} | Advance paid: ${fmt(totalPaid)}
-${b.slice(0, 12).map(x => `• ${x.category} — ${x.description}: est ${fmt(x.estimated ?? 0)}${x.actual ? ', actual ' + fmt(x.actual) : ''} [${x.status}]`).join('\n') || 'No budget items yet'}`
+${guestSection}${taskSection}${vendorSection}${budgetSection}`
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -730,7 +882,7 @@ export async function POST(req: NextRequest) {
   let tools: Anthropic.Tool[]
 
   if (entityType === 'celebration') {
-    systemPrompt = await buildCelebrationContext(entityId)
+    systemPrompt = await buildCelebrationContext(entityId, detectIntents(message))
     tools = CELEBRATION_TOOLS
   } else if (entityType === 'org_event') {
     systemPrompt = await buildOrgEventContext(entityId)

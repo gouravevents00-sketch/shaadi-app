@@ -12,5 +12,6 @@ export default async function ToolsPage({ params }: { params: Promise<{ id: stri
   const { data: cel } = await sc.from('celebrations').select('id, name, plan, bride_name, groom_name, event_date, city, wedding_style').eq('id', id).eq('user_id', user.id).single()
   if (!cel) redirect('/celebrate/new')
 
-  return <ToolsClient celebrationId={id} plan={(cel as { plan?: string }).plan ?? 'free'} celebration={cel as { name: string; bride_name?: string; groom_name?: string; event_date?: string; city?: string; wedding_style?: string }} />
+  const plan = process.env.NODE_ENV === 'development' ? 'pro' : ((cel as { plan?: string }).plan ?? 'free')
+  return <ToolsClient celebrationId={id} plan={plan} celebration={cel as { name: string; bride_name?: string; groom_name?: string; event_date?: string; city?: string; wedding_style?: string }} />
 }

@@ -20,7 +20,7 @@ export default async function BudgetCalcPage({ params }: { params: Promise<{ id:
   ])
 
   if (!celebration) redirect('/celebrate/new')
-  if ((celebration as { plan?: string }).plan !== 'pro') redirect(`/my/${id}/tools`)
+  if (process.env.NODE_ENV !== 'development' && (celebration as { plan?: string }).plan !== 'pro') redirect(`/my/${id}/tools`)
 
   return (
     <BudgetCalcClient
