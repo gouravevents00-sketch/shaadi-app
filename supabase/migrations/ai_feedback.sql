@@ -9,8 +9,8 @@ create table if not exists ai_feedback (
   created_at  timestamptz not null default now()
 );
 
-create index ai_feedback_entity_idx on ai_feedback(entity_id, entity_type);
-create index ai_feedback_rating_idx  on ai_feedback(rating, created_at desc);
+create index if not exists ai_feedback_entity_idx on ai_feedback(entity_id, entity_type);
+create index if not exists ai_feedback_rating_idx  on ai_feedback(rating, created_at desc);
 
 alter table ai_feedback enable row level security;
 
