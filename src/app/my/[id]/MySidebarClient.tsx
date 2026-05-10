@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, CheckCircle2, Users, Wallet, Store, Hotel,
   Shirt, Flame, Sparkles, ArrowLeft, Crown, CalendarDays,
-  MessageCircle, Download, Link2, Settings,
+  MessageCircle, Download, Link2, Settings, UtensilsCrossed, Car,
 } from 'lucide-react'
 
 type Celebration = {
@@ -57,6 +57,8 @@ export default function MySidebarClient({
     { href: `/my/${id}/budget`,    icon: Wallet,          label: 'Budget',     badge: 0 },
     { href: `/my/${id}/vendors`,   icon: Store,           label: 'Vendors',    badge: 0 },
     { href: `/my/${id}/rooms`,     icon: Hotel,           label: 'Rooms',      badge: 0 },
+    { href: `/my/${id}/menu`,      icon: UtensilsCrossed, label: 'Menu',       badge: 0 },
+    { href: `/my/${id}/vehicles`,  icon: Car,             label: 'Vehicles',   badge: 0 },
     { href: `/my/${id}/outfits`,   icon: Shirt,           label: 'Outfits',    badge: 0 },
     { href: `/my/${id}/rituals`,   icon: Flame,           label: 'Rituals',    badge: 0 },
     { href: `/my/${id}/tools`,     icon: Sparkles,        label: 'Tools',      badge: 0 },

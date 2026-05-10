@@ -16,10 +16,10 @@ import { useRouter } from 'next/navigation'
 type CelebGuest = {
   id: string; celebration_id: string; name: string; phone: string | null
   email: string | null; dietary: string | null; plus_count: number; side: string
-  family_group: string | null; is_vip: boolean | null; rsvp_status: string | null
-  rsvp_token: string | null; notes: string | null; arrival_mode: string | null
-  arrival_time: string | null; flight_no: string | null; needs_pickup: boolean | null
-  room_id: string | null; attending_function_ids: string[] | null
+  family_group: string | null; relation: string | null; is_vip: boolean | null
+  rsvp_status: string | null; rsvp_token: string | null; notes: string | null
+  arrival_mode: string | null; arrival_time: string | null; flight_no: string | null
+  needs_pickup: boolean | null; room_id: string | null; attending_function_ids: string[] | null
 }
 type CelebFunction = { id: string; name: string; date: string; start_time: string | null }
 
@@ -62,8 +62,8 @@ export default function GuestsClient({
   const [importLoading, setImportLoading] = useState(false)
   const [guestDrawer, setGuestDrawer] = useState<CelebGuest | null>(null)
   const [drawerTab, setDrawerTab] = useState<'profile' | 'edit' | 'travel' | 'functions'>('profile')
-  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', dietary: '', side: 'both', family_group: '', is_vip: false, notes: '' })
-  const [guestForm, setGuestForm] = useState({ name: '', phone: '', email: '', dietary: '', plus_count: '0', side: 'both', family_group: '', is_vip: false })
+  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', dietary: '', side: 'both', family_group: '', relation: '', is_vip: false, notes: '' })
+  const [guestForm, setGuestForm] = useState({ name: '', phone: '', email: '', dietary: '', plus_count: '0', side: 'both', family_group: '', relation: '', is_vip: false })
 
   const filteredGuests = guests.filter(g => {
     const matchSearch = !guestSearch || g.name.toLowerCase().includes(guestSearch.toLowerCase()) || g.phone?.includes(guestSearch) || false
@@ -102,12 +102,13 @@ export default function GuestsClient({
         phone: guestForm.phone || null, email: guestForm.email || null,
         dietary: guestForm.dietary || null, plus_count: parseInt(guestForm.plus_count) || 0,
         side: guestForm.side, family_group: guestForm.family_group || null,
+        relation: guestForm.relation || null,
         is_vip: guestForm.is_vip, rsvp_status: 'pending', rsvp_token: null, notes: null,
         arrival_mode: null, arrival_time: null, flight_no: null, needs_pickup: null,
         room_id: null, attending_function_ids: null,
       }
       setGuests(prev => [...prev, newG])
-      setGuestForm({ name: '', phone: '', email: '', dietary: '', plus_count: '0', side: 'both', family_group: '', is_vip: false })
+      setGuestForm({ name: '', phone: '', email: '', dietary: '', plus_count: '0', side: 'both', family_group: '', relation: '', is_vip: false })
       setShowAddGuest(false); toast.success(`${guestForm.name} added`)
     })
   }
@@ -188,8 +189,9 @@ export default function GuestsClient({
       id: `import-${Date.now()}-${i}`, celebration_id: celebrationId,
       name: r.name, phone: r.phone || null, email: r.email || null,
       dietary: r.dietary || null, plus_count: r.plus_count, side: r.side,
-      family_group: r.family_group || null, is_vip: r.is_vip, rsvp_status: 'pending',
-      rsvp_token: null, notes: r.notes || null, arrival_mode: null, arrival_time: null,
+      family_group: r.family_group || null, relation: null, is_vip: r.is_vip,
+      rsvp_status: 'pending', rsvp_token: null, notes: r.notes || null,
+      arrival_mode: null, arrival_time: null,
       flight_no: null, needs_pickup: null, room_id: null, attending_function_ids: null,
     }))
     setGuests(prev => [...prev, ...newGuests])
@@ -364,9 +366,13 @@ export default function GuestsClient({
                 {SIDES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
               </select>
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="text-xs text-stone-500 mb-1 block">Family group</label>
               <Input value={guestForm.family_group} onChange={e => setGuestForm(f => ({ ...f, family_group: e.target.value }))} placeholder="e.g. Sharma Family" />
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 mb-1 block">Relation</label>
+              <Input value={guestForm.relation} onChange={e => setGuestForm(f => ({ ...f, relation: e.target.value }))} placeholder="e.g. Maama ji" />
             </div>
             <div className="col-span-2 flex items-center gap-2">
               <input type="checkbox" id="vip" checked={guestForm.is_vip} onChange={e => setGuestForm(f => ({ ...f, is_vip: e.target.checked }))} className="rounded border-stone-300 text-rose-700" />
@@ -393,7 +399,7 @@ export default function GuestsClient({
       ) : (
         <div className="space-y-2">
           {filteredGuests.map(g => (
-            <div key={g.id} onClick={() => { setGuestDrawer(g); setDrawerTab('profile'); setEditForm({ name: g.name, phone: g.phone || '', email: g.email || '', dietary: g.dietary || '', side: g.side, family_group: g.family_group || '', is_vip: g.is_vip || false, notes: g.notes || '' }) }}
+            <div key={g.id} onClick={() => { setGuestDrawer(g); setDrawerTab('profile'); setEditForm({ name: g.name, phone: g.phone || '', email: g.email || '', dietary: g.dietary || '', side: g.side, family_group: g.family_group || '', relation: g.relation || '', is_vip: g.is_vip || false, notes: g.notes || '' }) }}
               className="bg-white border border-stone-100 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:border-stone-300 transition-colors">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-sm ${g.is_vip ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
                 {g.name[0]?.toUpperCase()}
@@ -470,6 +476,7 @@ export default function GuestsClient({
                 <div className="space-y-3">
                   {[
                     { label: 'Side', value: guestDrawer.side === 'bride' ? '🌸 Bride side' : guestDrawer.side === 'groom' ? '🤵 Groom side' : 'Both sides' },
+                    { label: 'Relation', value: guestDrawer.relation || '—' },
                     { label: 'Dietary', value: guestDrawer.dietary || 'Not specified' },
                     { label: 'Plus ones', value: String(guestDrawer.plus_count) },
                     { label: 'Family group', value: guestDrawer.family_group || '—' },
@@ -510,6 +517,10 @@ export default function GuestsClient({
                     <label className="text-xs text-stone-500 mb-1 block">Email</label>
                     <Input value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} type="email" />
                   </div>
+                  <div>
+                    <label className="text-xs text-stone-500 mb-1 block">Relation</label>
+                    <Input value={editForm.relation} onChange={e => setEditForm(f => ({ ...f, relation: e.target.value }))} placeholder="e.g. Maama ji" />
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-xs text-stone-500 mb-1 block">Dietary</label>
@@ -535,7 +546,7 @@ export default function GuestsClient({
                     <input type="checkbox" id="vip2" checked={editForm.is_vip} onChange={e => setEditForm(f => ({ ...f, is_vip: e.target.checked }))} className="rounded border-stone-300 text-rose-700" />
                     <label htmlFor="vip2" className="text-xs text-stone-600">VIP guest</label>
                   </div>
-                  <button onClick={() => handleSaveEdit(guestDrawer.id, { name: editForm.name.trim(), phone: editForm.phone || null, email: editForm.email || null, dietary: editForm.dietary || null, side: editForm.side, family_group: editForm.family_group || null, is_vip: editForm.is_vip, notes: editForm.notes || null })}
+                  <button onClick={() => handleSaveEdit(guestDrawer.id, { name: editForm.name.trim(), phone: editForm.phone || null, email: editForm.email || null, dietary: editForm.dietary || null, side: editForm.side, family_group: editForm.family_group || null, relation: editForm.relation || null, is_vip: editForm.is_vip, notes: editForm.notes || null })}
                     disabled={!editForm.name.trim() || isPending}
                     className="w-full bg-rose-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-800 disabled:opacity-50">
                     Save changes

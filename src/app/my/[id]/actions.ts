@@ -269,10 +269,11 @@ export async function connectToCreativeEra(celebrationId: string) {
 
 // ── Guests: update RSVP / details ─────────────────────────────
 export async function updateCelebrationGuest(guestId: string, data: {
-  name?: string; phone?: string; email?: string; dietary?: string; dietary_notes?: string
-  plus_count?: number; side?: string; family_group?: string; is_vip?: boolean
-  rsvp_status?: string; notes?: string; arrival_mode?: string; arrival_time?: string
-  flight_no?: string; needs_pickup?: boolean; room_id?: string | null
+  name?: string; phone?: string | null; email?: string | null; dietary?: string | null
+  dietary_notes?: string; plus_count?: number; side?: string; family_group?: string | null
+  relation?: string | null; is_vip?: boolean; rsvp_status?: string; notes?: string | null
+  arrival_mode?: string; arrival_time?: string; flight_no?: string; needs_pickup?: boolean
+  room_id?: string | null
 }) {
   const sc = createServiceClient()
   const updates: Record<string, unknown> = {}
@@ -283,6 +284,7 @@ export async function updateCelebrationGuest(guestId: string, data: {
   if (data.plus_count !== undefined) updates.plus_count = data.plus_count
   if (data.side !== undefined) updates.side = data.side
   if (data.family_group !== undefined) updates.family_group = data.family_group?.trim() || null
+  if (data.relation !== undefined) updates.relation = data.relation?.trim() || null
   if (data.is_vip !== undefined) updates.is_vip = data.is_vip
   if (data.rsvp_status !== undefined) updates.rsvp_status = data.rsvp_status
   if (data.notes !== undefined) updates.notes = data.notes?.trim() || null
@@ -600,5 +602,66 @@ export async function updateCelebration(celebrationId: string, data: {
     .update(data)
     .eq('id', celebrationId)
     .eq('user_id', user.id)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Menu ──────────────────────────────────────────────────────────────────────
+
+export async function addMenuItem(celebrationId: string, data: {
+  function_id?: string; dish_name: string; dish_type?: string;
+  plate_count?: number; is_veg?: boolean; notes?: string
+}) {
+  const sc = createServiceClient()
+  const { data: item, error } = await sc.from('celebration_menu').insert({
+    celebration_id: celebrationId,
+    function_id: data.function_id || null,
+    dish_name: data.dish_name.trim(),
+    dish_type: data.dish_type || 'main',
+    plate_count: data.plate_count ?? null,
+    is_veg: data.is_veg ?? true,
+    notes: data.notes?.trim() || null,
+  }).select('id').single()
+  return error ? { error: error.message } : { id: item.id }
+}
+
+export async function deleteMenuItem(itemId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_menu').delete().eq('id', itemId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+export async function updateFunctionTheme(functionId: string, theme: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_functions')
+    .update({ decoration_theme: theme || null })
+    .eq('id', functionId)
+  return error ? { error: error.message } : { ok: true }
+}
+
+// ── Vehicles ──────────────────────────────────────────────────────────────────
+
+export async function addVehicle(celebrationId: string, data: {
+  car_number: string; car_type?: string; car_model?: string;
+  capacity?: number; chauffeur_name?: string; chauffeur_phone?: string;
+  assigned_to?: string; notes?: string
+}) {
+  const sc = createServiceClient()
+  const { data: item, error } = await sc.from('celebration_vehicles').insert({
+    celebration_id: celebrationId,
+    car_number: data.car_number.trim(),
+    car_type: data.car_type || 'sedan',
+    car_model: data.car_model?.trim() || null,
+    capacity: data.capacity ?? 4,
+    chauffeur_name: data.chauffeur_name?.trim() || null,
+    chauffeur_phone: data.chauffeur_phone?.trim() || null,
+    assigned_to: data.assigned_to?.trim() || null,
+    notes: data.notes?.trim() || null,
+  }).select('id').single()
+  return error ? { error: error.message } : { id: item.id }
+}
+
+export async function deleteVehicle(vehicleId: string) {
+  const sc = createServiceClient()
+  const { error } = await sc.from('celebration_vehicles').delete().eq('id', vehicleId)
   return error ? { error: error.message } : { ok: true }
 }
